@@ -1,0 +1,401 @@
+<pre>==Initial setup==
+===Install git===
+  sudo apt-get install git
+
+===Setup a global user name and e-mail for the whole machine===
+  git config --global user.name "Your Name"
+  git config --global user.email "email@domain.eu"
+
+To edit the global git configuration, run:
+  git config --global -e
+
+===Setup a local user name and e-mail for a specific local repository===
+cd to the correct directory with the .git top folder sits in a given repository.
+  git config --local user.name "Your Name"
+  git config --local user.email "email@domain.eu"
+
+To check the configuration:
+  git config --local --get user.name
+  git config --local --get user.email
+
+==Setup a local git repository==
+  cd ~/path_of_your_project
+  git init
+
+===Add everything before a commit===
+  git add .
+
+===Commit everything===
+  git commit -m "your message about this commit"
+
+===Push committed files to the local repository===
+  git push . master
+
+==Setup a remote git repository with github==
+
+===Create a local user that matches github.com===
+  git config user.name "Your Name"
+  git config user.email "same e-mail used for github account"
+
+To edit the global git configuration, run:
+
+  git config --global -e
+
+===Create an SSH key to authenticate the dev machine to GitHub===
+====Preliminay step: install xclip====
+xclip will make it easier to copy/paste the SSH public key to the clipboard.
+
+  sudo apt-get install xclip
+
+====SSH key====
+  mkdir ~/.ssh (if it doesn't already exist)
+  cd ~/.ssh/
+  ssh-keygen -t rsa -C "same e-mail used for github account"
+
+The creation of the key includes setting a passphrase. This passphrase will only ever be used locally when trying to access the SSH key to connect to GitHub.
+
+1. To the question "Enter file in which to save the key" respond id_rsa
+2. Enter passphrase: create a long series of words put together that you can remember.
+
+  xclip -sel clip < ~/.ssh/id_rsa.pub
+
+Go to the GitHub website to register your SSH key (paste it into the GitHub account)
+
+To test the key is working, try to connect to GitHub
+
+  ssh -T git@github.com
+
+=====On Windows=====
+The ssh agent doesn't run by default. To load the key, run:
+
+  eval `ssh-agent.exe`
+  ssh-add /my/ssh/location/
+
+===Setup github repository===
+  cd ~/path_of_your_project
+  git init
+  touch README
+  git add .
+
+===Prepare the first commit===
+  git commit -m "first commit"
+  git remote add origin git@github.com:username/project-name.git
+  git push -u origin master
+
+===Push commited files to the remote repository===
+  git remote add origin https://github.com/username/project-name.git
+  git push -u origin master
+
+==Pull a remote git repository from GitHub==
+I assume your SSH key has already been setup on your local dev machine and enabled on the GitHub website account.
+
+  mkdir ~/test-directory
+  cd ~/test-directory/
+  git init
+  git remote add origin git@github.com:username/project-name.git
+  git pull -u origin master
+
+Alternative when there is no SSH key:
+
+  mkdir ~/test-directory
+  cd ~/test-directory/
+  git init
+  git remote add origin https://github.com/username/projectname.git
+  git pull -u origin master
+
+==Check differences before committing==
+Pick the exact situation:
+
+===Changes not staged yet===
+Show differences between index and working tree, that is, changes you haven't staged to commit
+
+  git diff [filename]
+
+===Staged changes about to be commited===
+Show differences between current commit and index, that is, what you're about to commit
+
+  git diff --cached [filename]
+
+===Commited already but not pushed yet===
+Show differences between current commit and working tree
+
+  git diff HEAD [filename]
+
+===Only list the filenames for a specific commit hash===
+
+  git --no-pager diff --name-only [commit hash or any other comparison]
+
+==Undo a local commit that has not been pushed yet==
+  git reset --soft HEAD~
+Note: don't forget the tilde at the end.
+
+==Ignore files==
+Source: https://help.github.com/articles/ignoring-files
+
+cd to the root of the project.
+
+  touch .gitignore
+  vi .gitignore
+
+Place the following files to ignore (for example):
+
+  # Intellij project files
+  *.iml
+  *.ipr
+  *.iws
+  .idea/
+
+I would include the .gitignore with git add .gitignore and commit it to the repository.
+  git add .gitignore
+
+==Remove files newly ignored but still being shown in git status==
+When a file was listed by git status and later meant to be ignore by .gitignore, it could still be listed. To make sure it's no longer listed, run:
+
+  git rm --cached path/to/file/name
+
+==Put current changes in a new branch==
+  git checkout -b name-of-new-branch
+  git commit -m "ADDED changes from another branch to this new branch."
+
+Source: http://stackoverflow.com/questions/4746672/git-put-current-changes-in-a-new-branch
+
+
+==List all remote branches==
+  git branch -r
+
+==List both local and remote branches==
+  git branch -a
+
+==List local branches==
+  git branch
+
+==Switch to an existing branch==
+  git checkout name-of-existing-branch
+
+If you get the error pathspec '…' did not match any file(s) known to git
+
+  git fetch
+
+git fetch will get all information about all branches.
+
+Source: http://stackoverflow.com/questions/5989592/git-cannot-checkout-branch-error-pathspec-did-not-match-any-files-kn
+
+==Update the local repository from remote, including the local cache==
+  git fetch --prune
+
+==Rename a branch and delete the old branch==
+
+  git checkout old-branch-name
+  git branch -m old-branch-name new-branch-name
+
+Delete the old branch
+
+  git push origin :old-branch-name
+
+Unset the upstream of the local branch
+
+  git branch --unset-upstream
+
+Now push the local branch
+
+  git push -u origin new-branch-name
+
+==Merge a branch back to master and delete it==
+master is the root branch to merge to.
+
+issue-1 is a branch where a bug has been solved and will now be merged back into master.
+
+  git checkout master
+  git merge issue-1
+  git push origin master
+  git branch -d issue-1
+  git push origin :issue-1
+  git branch -d issue-1 deleted the issue-1 branch locally (check by running git branch).
+
+git push origin :issue-1 deleted the issue-1 branch remotely (check on github).
+
+==Change location of the remote repository==
+  git remote -v
+  # View existing remotes
+  # origin  https://github.com/user/repo.git (fetch)
+  # origin  https://github.com/user/repo.git (push)
+
+  git remote set-url origin https://github.com/user/repo2.git
+  # Change the 'origin' remote's URL
+
+  git remote -v
+  # Verify new remote URL
+  # origin  https://github.com/user/repo2.git (fetch)
+  # origin  https://github.com/user/repo2.git (push)
+
+==Clean a local checkout==
+Remove all directories and files that shouldn't be there after getting the latest code.
+
+ git clean -df
+
+Options: -d removes the directories that need removing and -f forces the cleaning.
+
+==List only the merge conflict files that need manual fixing==
+  git diff --name-only --diff-filter=U
+
+==Checkout a specific file from another branch in the current branch==
+  git checkout other-branch-name -- filename
+
+==Choose theirs in a conflict==
+Rather than merge each conflict manually, if you're sure their changes are correct, not yours, you can run:
+
+  git checkout --theirs path/to/the/conflicting/file
+
+==Choose yours in a conflict==
+If you're sure your own changes are correct, not theirs, you can run:
+
+  git checkout --ours path/to/the/conflicting/file
+
+==List local commits not pushed to remote repository==
+  git log --branches --not --remotes
+
+==Give up on an incomplete merge==
+  git merge --abort
+
+==Rename local git branch before it has been pushed==
+  git branch -m <oldname> <newname>
+
+If you want to rename the current branch, you can simply do:
+
+  git branch -m <newname>
+
+
+==Revert working copy to most recent commit==
+  git reset --hard HEAD
+
+==Revert to a commit older than the most recent commit==
+  git revert -m
+
+See https://github.com/git/git/blob/master/Documentation/howto/revert-a-faulty-merge.txt
+
+==In conflict, take their changes==
+To solve a conflict on a specific file, take their changes with:
+
+  git checkout --theirs path/to/conflicting/file.aspx
+
+==Solve merge conflicts across 2 repositories==
+First add the dgapitts remote
+
+  git remote add dgapitts https://github.com/dgapitts/underwater-game.git
+  git fetch dgapitts
+
+Merge in dgapitts changes
+
+  git checkout develop
+  git merge dgapitts/develop
+
+Resolve conflicts and push
+
+  git push origin develop
+
+==List all the tags==
+  git tag
+
+==Create a new tag==
+  git tag -a v1 -m "First version made for iOS 8.2 and WatchOS 1.0.1 with xcode 6.3.1 and Swift 1.2. Missing working notifications. All branches merged into master."
+
+where v1 is the name of the tag and what follows -m is the tag description.
+
+==Push all tags to the remote repository==
+  git push --tags
+
+==Remove old local tags that do not exist on remote repository==
+  git tag -l | xargs git tag -d # remove all local tags
+  git fetch -t                  # fetch remote tags
+
+==Commit a case change when the filename is case insensitive==
+  git mv -f File file
+
+==Line endings==
+Solution: https://help.github.com/articles/dealing-with-line-endings/
+
+==Adding your SSH key to the ssh-agent==
+This is especially useful on Windows (Git Bash or Cygwin).
+
+Start the ssh-agent in the background
+
+  eval "$(ssh-agent -s)"
+
+Add your ssh key to the agent
+
+  ssh-add ~/.ssh/id_rsa
+
+==Stashing code==
+If I have code I want to keep but not commit, and I need to switch to another branch or pull some changes, then I should stash them temporarily:
+
+  git stash
+
+It's possible to have more than one bunch of code stashed on the side. To see them all:
+
+  git stash list
+
+To bring forward the most recent stash code:
+
+  git stash apply
+
+To apply an older stashed code, specify its name that would look something like stash@{2} for example
+
+  git stash apply stash@{2}
+
+==Merge another repository into your repository==
+In the example below, the remote repository, different from your repository, is git@github.com:ddbullfrog/resumecard.git
+
+You can add it as an "upstream" to be able to merge it into your own repository, in the gh-pages branch (for example)
+
+  git remote add upstream git@github.com:ddbullfrog/resumecard.git
+  git pull upstream gh-pages
+
+Interesting blog article: https://mmikowski.github.io/git-cross-origin/
+
+==Rebase a branch commits into your current branch==
+If you know another branch (develop or master for example) has had commits since you created your own feature branch from there, and that these commits should be appended to your feature branch history, they use rebase. This is the equivalent of rewriting the history of the creation of your feature branch, by positioning it after these commits from develop or master.
+
+ git checkout master
+ git pull
+ git checkout old-branch-started-earlier-that-needs-newer-changes-from-master
+ git rebase master
+
+==Useful global config==
+Source: https://spin.atomicobject.com/2020/05/05/git-configurations-default/
+
+ git config --global pull.rebase true
+ git config --global fetch.prune true
+ git config --global diff.colorMoved zebra
+
+==Squash previous commits into one or several commits==
+  git reset --soft HEAD~3
+
+Where "3" are the previous 3 commits. Once that command is run, it's possible to recommit in different ways. Note you will need to force push:
+
+  git push -f
+
+To un-stage:
+
+  git reset HEAD .
+
+==Configure multiple SSH ids for Bitbucket==
+See https://confluence.atlassian.com/bitbucket/configure-multiple-ssh-identities-for-gitbash-mac-osx-linux-271943168.html
+
+==List all the authors who ever contributed to a git repository==
+  git log | grep Author | sort | uniq
+
+==Checkout a single file from another branch==
+  git checkout [name of other branch] [path of the file]
+
+Example, while on branch dev:
+  git checkout master settings.yaml
+
+==Bisect==
+https://git-scm.com/docs/git-bisect
+
+
+==References from GitHub==
+See the official instructions from GitHub.com
+
+when using GitHub as the remote repository with ssh, an ssh key needs to be generated on the development machine.
+</pre>

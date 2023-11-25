@@ -1,0 +1,19 @@
+<pre>== Upgrade PHP from 7.1 to 8.0 on MacOS ==
+
+  brew update
+  brew upgrade
+  brew install php@8.0
+
+Then add this to your ~/.bash_profile
+
+  export PATH="/usr/local/opt/php@8.0/sbin:$PATH"
+
+And finally reboot Apache
+
+  sudo apachectl restart
+
+Optinally
+
+  source ~/.bash_profile
+  php --version
+</pre>

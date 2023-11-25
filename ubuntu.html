@@ -1,0 +1,185 @@
+<pre>==Port 80 requires elevated privileges==
+  When running on Ubuntu 16.04 with a user other than root, you are not allowed to publish node.js apps on port 80 by default. This can be fixed though:
+  
+    sudo apt-get install libcap2-bin
+    sudo setcap cap_net_bind_service=+ep `readlink -f \`which node\``
+  
+  ==Kill a running process==
+  First, you need to find the id of that process.
+  
+  For example, if Blender is hogging the memory, find its id with
+  
+    ps -A | grep blender
+  The first number is the id. Kill it with
+  
+    kill -9 the-blender-id-you-found
+  
+  ==Remove a PPA==
+  To remove the Midori PPA, run:
+  
+    sudo add-apt-repository --remove ppa:midori/ppa
+  
+  ==Install Google Chrome on Ubuntu 16.04==
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    sudo dpkg -i --force-depends google-chrome-stable_current_amd64.deb
+    sudo apt-get install -f
+  
+  ==Install Google Chrome==
+  Source: http://www.howopensource.com/2011/10/install-google-chrome-in-ubuntu-11-10-11-04-10-10-10-04/
+  
+  Run the following commands:
+  
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+    sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+    sudo apt-get update
+    sudo apt-get install google-chrome-stable
+  
+  ==Backup and restore an Ubuntu server==
+  Instructions: http://community.spiceworks.com/how_to/show/381
+  
+  ==Install Joomla on Ubuntu==
+  sudo vi /etc/apache2/sites-enabled/000-default
+  Add entries:
+  
+    <VirtualHost *:80>
+      DocumentRoot /home/useraccount/www/domainname.loc
+      ServerName domainname.loc
+    </VirtualHost>
+  
+  Locally, edit the etc/hosts file to point to the server:
+  
+    sudo vi /etc/hosts
+  
+  Restart Apache
+  
+    sudo /etc/init.d/apache2 restart
+  
+  On a local machine, to see the website before it's public, add an entry, where 127.0.0.1 is the IP of the server and domainname.loc is the domain name:
+  
+    127.0.0.1 domainname.loc
+  
+  Finally, browse
+  
+  http://domainname.loc
+  
+  ==Useful commands==
+  
+  ===Append a user to an existing group without removing his current groups===
+    sudo usermod -aG <groupname> <username>
+  
+  ==Settings==
+  ===Prevent cats switching off Ubuntu by walking on the power button===
+  Comment out with a # in front of "/sbin/shutdown -h now" in /etc/acpi/powerbtn.sh
+  
+  ==Install LAMP stack on Ubuntu==
+  Reference document: https://help.ubuntu.com/community/ApacheMySQLPHP
+  
+    sudo apt-get update
+    sudo apt-get install tasksel
+    sudo tasksel install lamp-server
+  
+  ==Setup SSL on Ubuntu==
+  Start from your home directory.
+  
+  ===Create your server's public and private keys and set pass phrase===
+    sudo openssl genrsa -des3 -out server.key 1024
+  
+  You will be asked a passphrase. Make sure you don't forget it.
+  
+  ===Create certificate request file===
+    sudo openssl req -new -key server.key -out server.csr
+  
+  * Re-use the same passphrase defined in the previous step, then enter:
+  * country name, ex: NL for Netherlands
+  * state of province name, ex: Noord-Holland
+  * name of your city, ex: Amsterdam
+  * organisation name, ex: eBabel
+  * business unit, ex: Web Development
+  * your own name, ex: Thomas Amar
+  * your e-mail address, ex: hello@ebabel.eu
+  * a challenge password (not the same thing as your passphrase)
+  * optional company name. I use my main domain name: ebabel.eu
+  
+  ===Create self signed certificate===
+    sudo openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
+  
+  You will be prompted to enter your passphrase again.
+  
+  ===Update httpd.conf===
+    sudo vi /etc/apache2/httpd.conf
+  
+  In httpd.conf, insert text below then save with :wq
+  
+    Servername localhost
+  
+  Restart Apache:
+  
+    sudo service apache2 restart
+  
+  ===Copy the server.crt and server.key files into the appropriate directory===
+    cd /etc/apache2
+    sudo mkdir ssl
+    sudo cp ~/server.key /etc/apache2/ssl/
+    sudo cp ~/server.crt /etc/apache2/ssl/
+  
+  ===Enable the Apache SSL module===
+    sudo a2enmod ssl
+  
+  ===Restart Apache===
+    sudo /etc/init.d/apache2 restart
+  
+  ===Stub SSL conf. file and symlink (Symbolic Link)===
+    sudo ln -s /etc/apache2/sites-available/default-ssl /etc/apache2/sites-enabled/000-default-ssl
+  
+  ===Edit the Default-SSL configuration file===
+  There are too many changes to make by simply using vi, so I'll make a copy of default-ssl, download it, edit it in Gedit then upload it to the server.
+  
+    sudo cp /etc/apache2/sites-available/default-ssl ~/
+  
+  Download the default-ssl file with sftp and edit it. Insert the following configuration lines in bold between the IfModule and VirtualHost tags:
+  
+    <IfModule mod_ssl.c>
+  
+  '''NameVirtualHost *:443'''
+  
+  '''SSLStrictSNIVHostCheck off'''
+  
+    <VirtualHost *:443>
+  
+  Duplicate the big block of settings for each VirtualHost that needs SSL
+  
+    <VirtualHost *:443>
+      DocumentRoot /var/www/nl.sitedomain.www/
+      ServerName www.sitedomain.nl
+      [...more code, left unchanged...]
+    </VirtualHost>
+  
+    <VirtualHost *:443>
+      DocumentRoot /var/www/nl.anothersitedomain.www/
+      ServerName www.anothersitedomain.nl
+      [...more code, left unchanged...]
+    </VirtualHost>
+  
+  Upload the default-ssl file and overwrite the one that was originally there.
+  
+  ===Restart Apache===
+    sudo /etc/init.d/apache2 restart
+  
+  ==Setup self signed SSL certificate for NodeJS on Windows==
+  Create the keys:
+  
+    openssl genrsa -des3 -out privatekey.key 1024
+    openssl req -new -key privatekey.key -out csrkey.csr
+    openssl x509 -req -days 365 -in csrkey.csr -signkey privatekey.key -out certificate.crt
+  
+  Convert to Windows format:
+  
+    openssl x509 -in certificate.crt -out certificate.pem -outform PEM
+    cat certificate.crt privatekey.key > privatekey.pem
+  
+  ==Setup self signed SSL certificate for NodeJS on Mac OS X==
+    sudo ssh-keygen -f host.key
+    sudo openssl req -new -key host.key -out request.csr
+    sudo openssl x509 -req -days 365 -in request.csr -signkey host.key -out server.crt
+    sudo openssl rsa -in host.key -out host.nopass.key
+  </pre>

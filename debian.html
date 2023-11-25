@@ -1,0 +1,63 @@
+<pre>Note: by default, assume these instructions are for Debian 10.
+
+  ==Change system wide the default text editor in Debian==
+   sudo update-alternatives --config editor
+  
+  Then choose <code>vim.basic</code> (my favourite!)
+  
+  ==Create a symbolic link==
+   ln -s <destination file or directory> <name of the symlink>
+  
+  ==Cron jobs==
+  
+  ===List cron jobs===
+   crontab -l
+  
+  ===Update cron jobs===
+  One entry per line.
+  
+   crontab -e
+  
+  For example, to run a cron job every single day at 2am, write <code>0 2 * * * /scripts/script.sh</code> and define inside that <code>script.sh</code> file what the job is.
+  
+  ==Configure multiple sites on a bitnami debian server==
+  
+  Source: https://docs.bitnami.com/aws/apps/wordpress/administration/redirect-custom-domains/
+  
+  ===Select A or B setup===
+  
+  There are 2 approaches, A and B. To know which one to follow, run the command below.
+  
+   test ! -f "/opt/bitnami/common/bin/openssl" && echo "Approach A: Using system packages." || echo "Approach B: Self-contained installation."
+  
+  ===Configure host===
+  
+  For example, create a new site called underwater.ebabel.eu
+  
+   cp /opt/bitnami/apache2/conf/vhosts/sample-https-vhost.conf.disabled /opt/bitnami/apache2/conf/vhosts/underwater-https-vhost.conf
+  
+   cp /opt/bitnami/apache2/conf/vhosts/sample-vhost.conf.disabled /opt/bitnami/apache2/conf/vhosts/underwater-vhost.conf
+  
+  Update the content of the 2 new files that have been created just now, <code>underwater-https-vhost.conf</code> and <code>underwater-vhost.conf</code>
+  
+  ===Setup SSL===
+  To host multiple sites, list all the domains and subdomains that need https in one go, separate by spaces.
+  
+   sudo /opt/bitnami/bncert-tool
+  
+  ===Prevent directory browsing and setup error pages===
+  Create a <code>.htaccess</code> a the root of a website:
+  
+   # Don't list directories.
+   Options -Indexes
+   
+   # Handle 404 page not found with a custom page.
+   ErrorDocument 404 /error.html
+   
+   # Redirect unauthorised browsing to a funny page.
+   ErrorDocument 403 /unauthorised.html
+  
+  ===Restart apache===
+  
+   sudo /opt/bitnami/ctlscript.sh restart apache
+  </pre>

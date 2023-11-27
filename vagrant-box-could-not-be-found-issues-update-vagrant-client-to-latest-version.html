@@ -1,0 +1,71 @@
+<pre>== Summary ==
+
+  After running <code>vagrant up</code> I was hitting  errord like Box X could not be found:
+   Box 'generic/debian10' could not be found... URL: ["https://atlas.hashicorp.com/generic/debian10"] ... 404 Not Found
+   Box 'debian/buster64' could not be found... URL: ["https://atlas.hashicorp.com/debian/buster64"] ... 404 Not Found
+  
+  it looks like the URL path now has '''boxes''' in the path e.g. https://app.vagrantup.com/debian/boxes/buster64
+  
+  I was also running an old laptop and my vagrant client version (1.7.x) was installed several years ago.
+  
+   '''Upgrading vagrant''' (https://www.vagrantup.com/downloads.html) to the latest version '''fixed this issue''' ... more details below.
+  
+  == Details ==
+  
+  
+  === vagrant up throwing Box could not be found ===
+  I was getting errors like 
+  * Box 'generic/debian10' could not be found... URL: ["https://atlas.hashicorp.com/generic/debian10"] ... 404 Not Found
+  * Box 'debian/buster64' could not be found... URL: ["https://atlas.hashicorp.com/debian/buster64"] ... 404 Not Found
+  i.e.
+    ~/projects/vagrant-postgres96-debian10 $ time vagrant up
+    Bringing machine 'default' up with 'virtualbox' provider...
+    ==> default: Box 'generic/debian10' could not be found. Attempting to find and install...
+        default: Box Provider: virtualbox
+        default: Box Version: >= 0
+    The box 'generic/debian10' could not be found or
+    could not be accessed in the remote catalog. If this is a private
+    box on HashiCorp's Atlas, please verify you're logged in via
+    `vagrant login`. Also, please double-check the name. The expanded
+    URL and error message are shown below:
+    URL: ["https://atlas.hashicorp.com/generic/debian10"]
+    Error: The requested URL returned error: 404 Not Found
+    real	0m4.766s
+    user	0m2.375s
+    sys	0m0.573s
+  and
+    ~/projects/vagrant-postgres96-debian10 $ vi Vagrantfile
+    ~/projects/vagrant-postgres96-debian10 $ time vagrant up
+    Bringing machine 'default' up with 'virtualbox' provider...
+    ==> default: Box 'debian/buster64' could not be found. Attempting to find and install...
+        default: Box Provider: virtualbox
+        default: Box Version: >= 0
+    The box 'debian/buster64' could not be found or
+    could not be accessed in the remote catalog. If this is a private
+    box on HashiCorp's Atlas, please verify you're logged in via
+    `vagrant login`. Also, please double-check the name. The expanded
+    URL and error message are shown below:
+  
+    URL: ["https://atlas.hashicorp.com/debian/buster64"]
+    Error: The requested URL returned error: 404 Not Found
+    real	0m3.656s
+    user	0m2.316s
+    sys	0m0.309s
+  
+  
+  === Fix Upgrade Vagrant ===
+  
+  ==== Before ====
+  
+  I was also running an old laptop and my vagrant version (1.7.4) was installed several years ago.
+  
+   ~ $ vagrant --version
+   Vagrant 1.7.4
+  
+  ==== After ====
+  
+  Upgrading vagrant (https://www.vagrantup.com/downloads.html) to the latest version fixed this issue.
+  
+   ~ $ vagrant --version
+   Vagrant 2.2.14
+  </pre>

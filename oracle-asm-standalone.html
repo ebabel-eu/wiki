@@ -1,0 +1,440 @@
+<pre>Overview
+  In recent years I have working mostly with oracle instances using traditional/cooked filesystems i.e. all the datafiles under $ORACLE_BASE/oradata.
+  
+  However I keep hearing that ASM is the future (there are lots of advantages, which are featured heavily in the Oracle 10g and 11g OCP exams.
+  
+  I also like using command line tools, as they make the actions so much more transparent and longer term easy to script; so when I am running
+  
+  Base OS Setup ... Centos 5.8 with 7disc x 4G storage array
+  The starting point for this project is
+  
+  https://github.com/hajee/vagrant-centos-5.10-ora12-rac
+  
+  This a great github project and using this you can easily build a two node RAC cluster with ASM with much of the Oracle Service deployed via puppet. This degree of automation is undoubtly extremely impressive but a bit more than I current require.
+  
+  As I want to understand the background infrastructure better, so I'm not going to use puppet i.e. once I have the base Centos 5.8 image up, with the 7disc x 4G storage array up (via rake ... which looks incredibly useful add-on to Vagrant).
+  
+  Here is the key part of the Rakefile:
+  
+  ~/projects/ora12asm $ tail -26  Rakefile
+  
+  desc "Storagetasks"
+  namespace :storage do
+  
+    desc "configure dbasm"
+    task :dbasm do
+      create_controller('dbasm')
+      connect_disks('dbasm')
+    end
+  
+  end
+  
+  def create_controller(vm)
+    puts "Creating controller"
+    sh "vboxmanage storagectl #{vm} --add sata --portcount 10 --name 'SATA Controller'"
+  end
+  
+  def connect_disks(vm)
+    controller_name = "SATA Controller"
+    vdi_files = Dir.glob('*.vdi')
+    vdi_files.each_with_index do |vdi_file, no|
+      puts "Connect disk #{vdi_file}"
+      sh "vboxmanage storageattach #{vm} --storagectl 'SATA Controller' --port #{no} --device 0 --type hdd --medium #{vdi_file} --mtype shareable"
+    end
+  end
+  
+  However I'm going to use an old fashioned shell script (provision.sh) for just installing some useful background packages:
+  
+  ~/projects/ora12asm $ cat provision.sh
+  #! /bin/bash
+  if [ ! -f /home/vagrant/already-installed-flag ]
+  then
+    echo "ADD EXTRA ALIAS VIA .bashrc"
+    cat /vagrant/bashrc.append.txt >> /home/vagrant/.bashrc
+    #echo "GENERAL YUM UPDATE"
+    #yum -y update
+    #echo "INSTALL GIT"
+    #yum -y install git
+    echo "INSTALL VIM"
+    yum -y -y install vim
+    echo "INSTALL TREE"
+    yum -y install tree
+    echo "INSTALL UNZIP"
+    yum  -y install unzip curl wget
+    yum -y install perl
+    echo "INSTALL SYSSTAT"
+    yum -y install sysstat
+  
+  
+  
+  else
+    echo "already installed flag set : /home/vagrant/already-installed-flag"
+  fi
+  
+  NB The dependent oracle RPMs and setting kernel parameters, which I would typically automate in the provision.sh file are not required as they are in the base "hajee/centos-5.10-x86_64" box image. Although I might at some stage reintroduce this, as I'm want to upgrade to Centos 6. This build is also missing rlwrap (something I typically automate in the provision.sh).
+  
+  Preparing discs and asmlib
+  There is a really good oracle-base.com for this part, it starts from the basic OS setup, including disc array and oracle software install
+  
+  The article assumes the operating system installation is complete, along with an Oracle software installation. The ASM instance shares the Oracle home with the database instance. If you plan on running multiple database instances on the server the ASM instance should be installed in a separate Oracle home.
+  http://oracle-base.com/articles/10g/asm-using-asmlib-and-raw-devices.php
+  
+  The first step is fdisk, in the old days a sysadmin would do this sort of operation, but the modern DBA is expected to be more versatile.
+  
+  Firstly running 'fdisk -l' none of the seven /dev/sd* disks have a partition table yet:
+  
+  [root@ora12asm yum.repos.d]# fdisk -l
+  
+  Disk /dev/hda: 42.9 GB, 42949672960 bytes
+  255 heads, 63 sectors/track, 5221 cylinders
+  Units = cylinders of 16065 * 512 = 8225280 bytes
+  
+     Device Boot      Start         End      Blocks   Id  System
+  /dev/hda1   *           1          13      104391   83  Linux
+  /dev/hda2              14        5221    41833260   8e  Linux LVM
+  
+  Disk /dev/sda: 4294 MB, 4294967296 bytes
+  255 heads, 63 sectors/track, 522 cylinders
+  Units = cylinders of 16065 * 512 = 8225280 bytes
+  
+  Disk /dev/sda doesn't contain a valid partition table
+  
+  . . .
+  
+  Disk /dev/sdg: 4294 MB, 4294967296 bytes
+  255 heads, 63 sectors/track, 522 cylinders
+  Units = cylinders of 16065 * 512 = 8225280 bytes
+  
+  Disk /dev/sdg doesn't contain a valid partition table
+  we can rectify this via fdisk
+  
+  [root@ora12asm vagrant]# fdisk /dev/sda
+  Device contains neither a valid DOS partition table, nor Sun, SGI or OSF disklabel
+  Building a new DOS disklabel. Changes will remain in memory only,
+  until you decide to write them. After that, of course, the previous
+  content won't be recoverable.
+  
+  Warning: invalid flag 0x0000 of partition table 4 will be corrected by w(rite)
+  
+  Command (m for help): m
+  Command action
+     a   toggle a bootable flag
+     b   edit bsd disklabel
+     c   toggle the dos compatibility flag
+     d   delete a partition
+     l   list known partition types
+     m   print this menu
+     n   add a new partition
+     o   create a new empty DOS partition table
+     p   print the partition table
+     q   quit without saving changes
+     s   create a new empty Sun disklabel
+     t   change a partition's system id
+     u   change display/entry units
+     v   verify the partition table
+     w   write table to disk and exit
+     x   extra functionality (experts only)
+  
+  Command (m for help): n
+  Command action
+     e   extended
+     p   primary partition (1-4)
+  p
+  Partition number (1-4): 1
+  First cylinder (1-522, default 1):
+  Using default value 1
+  Last cylinder or +size or +sizeM or +sizeK (1-522, default 522):
+  Using default value 522
+  
+  Command (m for help): m
+  Command action
+     a   toggle a bootable flag
+     b   edit bsd disklabel
+     c   toggle the dos compatibility flag
+     d   delete a partition
+     l   list known partition types
+     m   print this menu
+     n   add a new partition
+     o   create a new empty DOS partition table
+     p   print the partition table
+     q   quit without saving changes
+     s   create a new empty Sun disklabel
+     t   change a partition's system id
+     u   change display/entry units
+     v   verify the partition table
+     w   write table to disk and exit
+     x   extra functionality (experts only)
+  
+  Command (m for help): w
+  The partition table has been altered!
+  
+  Calling ioctl() to re-read partition table.
+  Syncing disks.
+  and now running 'fdisk -l' again:
+  
+  . . . 
+  Disk /dev/sda: 4294 MB, 4294967296 bytes
+  255 heads, 63 sectors/track, 522 cylinders
+  Units = cylinders of 16065 * 512 = 8225280 bytes
+  
+     Device Boot      Start         End      Blocks   Id  System
+  /dev/sda1               1         522     4192933+  83  Linux
+  . . .
+  after repeating this for all /dev/sd* devices (i.e. 7 discs), we can install the asm related RPMs, note the version of oracleasm-2.6.18-371.el5-2.0.5-1.el5.x86_64.rpm is dependent on the linux kernel version (i.e. from uname -r):
+  
+  [root@ora12asm yum.repos.d]# uname -r
+  2.6.18-371.el5
+  [root@ora12asm yum.repos.d]# cd /vagrant/
+  [root@ora12asm vagrant]# ls *rpm
+  oracleasm-2.6.18-371.el5-2.0.5-1.el5.x86_64.rpm  oracleasmlib-2.0.4-1.el5.x86_64.rpm  oracleasm-support-2.1.8-1.el5.x86_64.rpm
+  [root@ora12asm vagrant]# rpm -Uvh oracleasm-support-2.1.8-1.el5.x86_64.rpm oracleasmlib-2.0.4-1.el5.x86_64.rpm oracleasm-2.6.18-371.el5-2.0.5-1.el5.x86_64.rpm
+  warning: oracleasm-support-2.1.8-1.el5.x86_64.rpm: Header V3 DSA signature: NOKEY, key ID 1e5e0159
+  Preparing...                ########################################### [100%]
+     1:oracleasm-support      ########################################### [ 33%]
+     2:oracleasm-2.6.18-371.el########################################### [ 67%]
+     3:oracleasmlib           ########################################### [100%]
+  now we configure the ASM library:
+  
+  [root@ora12asm vagrant]# /etc/init.d/oracleasm configure
+  Configuring the Oracle ASM library driver.
+  
+  This will configure the on-boot properties of the Oracle ASM library
+  driver.  The following questions will determine whether the driver is
+  loaded on boot and what permissions it will have.  The current values
+  will be shown in brackets ('[]').  Hitting <ENTER> without typing an
+  answer will keep that current value.  Ctrl-C will abort.
+  
+  Default user to own the driver interface []: oracle
+  Default group to own the driver interface []: oinstall
+  Start Oracle ASM library driver on boot (y/n) [n]: y
+  Scan for Oracle ASM disks on boot (y/n) [y]:
+  Writing Oracle ASM library driver configuration: done
+  Initializing the Oracle ASMLib driver:                     [  OK  ]
+  Scanning the system for Oracle ASMLib disks:               [  OK  ]
+  then use the oracleasm createdisk and scandisks:
+  
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL1 /dev/sda1
+  Marking disk "VOL1" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL2 /dev/sdb1
+  Marking disk "VOL2" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL3 /dev/sdc1
+  Marking disk "VOL3" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL4 /dev/sdd1
+  Marking disk "VOL4" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL5 /dev/sde1
+  Marking disk "VOL5" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL6 /dev/sdf1
+  Marking disk "VOL6" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm createdisk VOL7 /dev/sdg1
+  Marking disk "VOL7" as an ASM disk:                        [  OK  ]
+  [root@ora12asm shm]# /etc/init.d/oracleasm scandisks
+  Scanning the system for Oracle ASMLib disks:               [  OK  ]
+  finally we can use listdisks
+  
+  [root@ora12asm shm]# /etc/init.d/oracleasm listdisks
+  VOL1
+  VOL2
+  VOL3
+  VOL4
+  VOL5
+  VOL6
+  VOL7
+  Installing the Oracle Grid Infrastructure software
+  as root setup new oragrid user and asm groups
+  This article is GUI based but gives a good overview: http://www.oracledistilled.com/grid-infrastructure/install-oracle-grid-infrastructure-11gr2-with-asm-on-standalone-server/
+  
+  and I did start by adding the following users:
+  
+  groupadd asmadmin
+  groupadd asmoper
+  groupadd asmdba
+  useradd -g oinstall -G asmadmin,asmoper,asmdba oragrid
+  passwd oragrid
+  plus as I think the oracle software was already installs (and in a different group), I added:
+  
+  chmod g+w /u01
+  as oragrid install oracle grid software (linuxamd64_12c_grid)
+  Unpack the software (note that the oracle grid sofware must be downloaded from oracle.com as you must sign their eula and them into the root of the project on the host i.e. /vagran):
+  
+  su - oragrid
+  mkdir /u01/grid
+  mkdir -p /u01/grid/product/12.1.0/grid_1
+  
+  cd /tmp
+  cp /vagrant/linuxamd64_12c_grid_* .
+  unzip linuxamd64_12c_grid_1of2.zip
+  unzip linuxamd64_12c_grid_2of2.zip
+  
+  cd grid
+  the project includes a response file for installing
+  
+  [oragrid@ora12asm grid]$ cat /vagrant/oragrid_asm.rsp
+  oracle.install.responseFileVersion=/oracle/install/rspfmt_crsinstall_response_schema_v12.1.0
+  ORACLE_HOSTNAME=ora12asm
+  INVENTORY_LOCATION=/etc/oraInventory
+  SELECTED_LANGUAGES=en
+  oracle.install.option=CRS_SWONLY
+  ORACLE_BASE=/u01/grid
+  ORACLE_HOME=/u01/grid/product/12.1.0/grid_1
+  oracle.install.asm.OSDBA=oinstall
+  oracle.install.asm.OSOPER=asmoper
+  oracle.install.asm.OSASM=asmadmin
+  oracle.installer.autoupdates.option=SKIP_UPDATES
+  and to insstall:
+  
+  ./runInstaller -silent -ignorePrereq -waitForCompletion -responseFile /vagrant/oragrid_asm.rsp
+  as root run root.sh and start stand-alone crs service (ohasd)
+  Run root.sh
+  
+  [root@ora12asm ~]# /u01/grid/product/12.1.0/grid_1/root.sh
+  Check /u01/grid/product/12.1.0/grid_1/install/root_ora12asm_2015-03-07_11-02-59.log for the output of root script
+  [root@ora12asm ~]# cat /u01/grid/product/12.1.0/grid_1/install/root_ora12asm_2015-03-07_11-02-59.log
+  Performing root user operation for Oracle 12c
+  
+  The following environment variables are set as:
+      ORACLE_OWNER= oragrid
+      ORACLE_HOME=  /u01/grid/product/12.1.0/grid_1
+     Copying dbhome to /usr/local/bin ...
+     Copying oraenv to /usr/local/bin ...
+     Copying coraenv to /usr/local/bin ...
+  
+  Entries will be added to the /etc/oratab file as needed by
+  Database Configuration Assistant when a database is created
+  Finished running generic part of root script.
+  Now product-specific root actions will be performed.
+  
+  To configure Grid Infrastructure for a Stand-Alone Server run the following command as the root user:
+  /u01/grid/product/12.1.0/grid_1/perl/bin/perl -I/u01/grid/product/12.1.0/grid_1/perl/lib -I/u01/grid/product/12.1.0/grid_1/crs/install /u01/grid/product/12.1.0/grid_1/crs/install/roothas.pl
+  
+  
+  To configure Grid Infrastructure for a Cluster execute the following command as oragrid user:
+  /u01/grid/product/12.1.0/grid_1/crs/config/config.sh
+  This command launches the Grid Infrastructure Configuration Wizard. The wizard also supports silent operation, and the parameters can be passed through the response file that is available in the installation media.
+  and as we want the Stand-Alone Server:
+  
+  [root@ora12asm ~]# /u01/grid/product/12.1.0/grid_1/perl/bin/perl -I/u01/grid/product/12.1.0/grid_1/perl/lib -I/u01/grid/product/12.1.0/grid_1/crs/install /u01/grid/product/12.1.0/grid_1/crs/install/roothas.pl
+  Using configuration parameter file: /u01/grid/product/12.1.0/grid_1/crs/install/crsconfig_params
+  LOCAL ADD MODE
+  Creating OCR keys for user 'oragrid', privgrp 'oinstall'..
+  Operation successful.
+  LOCAL ONLY MODE
+  Successfully accumulated necessary OCR keys.
+  Creating OCR keys for user 'root', privgrp 'root'..
+  Operation successful.
+  CRS-4664: Node ora12asm successfully pinned.
+  2015/03/07 11:03:33 CLSRSC-330: Adding Clusterware entries to file '/etc/inittab'
+  
+  
+  ora12asm     2015/03/07 11:04:00     /u01/grid/product/12.1.0/grid_1/cdata/ora12asm/backup_20150307_110400.olr
+  2015/03/07 11:04:00 CLSRSC-327: Successfully configured Oracle Grid Infrastructure for a Standalone Server
+  
+  as oragrid, we can now run asmca
+  Firstly a few sanity checks, for the new inittab entry for ohasd and from ps we can see this currently running
+  
+  [ora12asm:oragrid:~]$cat /etc/inittab|tail -1
+  h1:35:respawn:/etc/init.d/init.ohasd run >/dev/null 2>&1 </dev/null
+  [ora12asm:oragrid:~]$ps -ef|grep ohasd|grep -v grep
+  root      7326     1  0 11:03 ?        00:00:00 /bin/sh /etc/init.d/init.ohasd run
+  oragrid   7356     1  0 11:03 ?        00:00:26 /u01/grid/product/12.1.0/grid_1/bin/ohasd.bin reboot
+  and now we can install asm:
+  
+  [ora12asm:oragrid:~]$. oraenv
+  ORACLE_SID = [+ASM] ? +ASM
+  ORACLE_HOME = [/home/oracle] ? /u01/grid/product/12.1.0/grid_1
+  The Oracle base has been changed from /u01 to /u01/grid
+  [ora12asm:oragrid:~]$asmca -silent -configureASM -sysAsmPassword qwe123 -asmsnmpPassword qwe123 -diskString 'ORCL:*' -diskGroupName DATA -disk 'ORCL:*' -redundancy EXTERNAL
+  
+  ASM created and started successfully.
+  
+  Disk Group DATA created successfully.
+  which is automatically started:
+  
+  [ora12asm:oragrid:~]$ps -ef|grep pmon
+  oragrid   7866     1  0 11:09 ?        00:00:00 asm_pmon_+ASM
+  
+  resizing sga from 1088M to 400M
+  [ora12asm:oragrid:~]$sqlplus / as sysdba
+  
+  SQL*Plus: Release 12.1.0.1.0 Production on Sat Mar 7 14:24:28 2015
+  
+  Copyright (c) 1982, 2013, Oracle.  All rights reserved.
+  
+  
+  Connected to:
+  Oracle Database 12c Enterprise Edition Release 12.1.0.1.0 - 64bit Production
+  With the Automatic Storage Management option
+  
+  SQL> show parameter sga
+  
+  NAME				     TYPE	 VALUE
+  ------------------------------------ ----------- ------------------------------
+  lock_sga			     boolean	 FALSE
+  sga_max_size			     big integer 1088M
+  sga_target			     big integer 0
+  unified_audit_sga_queue_size	     integer	 1048576
+  The regular alter system command doesn't work, so I created a pfile
+  
+  SQL> alter system set sga_max_size=400M scope=both;
+  alter system set sga_max_size=400M scope=both
+                   *
+  ERROR at line 1:
+  ORA-02095: specified initialization parameter cannot be modified
+  
+  SQL> create pfile='/vagrant/asm_pfile' from spfile;
+  
+  File created.
+  after the setting sga_max_size=400M in the pfile, I restarted the instance as sysasm:
+  
+  SQL> shutdown immediate
+  ORA-01031: insufficient privileges
+  SQL> exit
+  Disconnected from Oracle Database 12c Enterprise Edition Release 12.1.0.1.0 - 64bit Production
+  With the Automatic Storage Management option
+  
+  [ora12asm:oragrid:~]$sqlplus / as sysasm
+  
+  SQL*Plus: Release 12.1.0.1.0 Production on Sat Mar 7 14:27:21 2015
+  
+  Copyright (c) 1982, 2013, Oracle.  All rights reserved.
+  
+  
+  Connected to:
+  Oracle Database 12c Enterprise Edition Release 12.1.0.1.0 - 64bit Production
+  With the Automatic Storage Management option
+  
+  SQL> shutdown immediate
+  ASM diskgroups dismounted
+  ASM instance shutdown
+  SQL> startup pfile='/vagrant/asm_pfile';
+  ASM instance started
+  
+  Total System Global Area  417546240 bytes
+  Fixed Size		    2289064 bytes
+  Variable Size		  390091352 bytes
+  ASM Cache		   25165824 bytes
+  ORA-15110: no diskgroups mounted
+  I also had to mount the disk group:
+  
+  SQL> select name,state from v$asm_diskgroup;
+  
+  NAME			       STATE
+  ------------------------------ -----------
+  DATA			       DISMOUNTED
+  
+  SQL> ALTER DISKGROUP ALL MOUNT;
+  ALTER DISKGROUP ALL MOUNT
+  *
+  ERROR at line 1:
+  ORA-15110: no diskgroups mounted
+  
+  
+  SQL> ALTER DISKGROUP DATA MOUNT;
+  
+  Diskgroup altered.
+  
+  SQL> select name,state from v$asm_diskgroup;
+  
+  NAME			       STATE
+  ------------------------------ -----------
+  DATA			       MOUNTED
+  </pre>

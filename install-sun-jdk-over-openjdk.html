@@ -1,0 +1,125 @@
+<pre>As well as the main steps as described in Thomas' post:
+
+  [http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1637583.html Download the SE (standard edition) of Java JDK] jdk-7u6-linux-i586.tar.gz (32 bits) or jdk-7u6-linux-x64.tar.gz (64 bits)
+  
+    cd /usr/lib
+    sudo mkdir jvm
+    cd jvm
+    sudo mv ~/Downloads/jdk-7u6-linux-x64.tar.gz /usr/lib/jvm/
+    sudo tar -xvzf jdk-7u6-linux-x64.tar.gz
+    sudo rm jdk-7u6-linux-x64.tar.gz
+    sudo update-alternatives --install "/usr/bin/java" "java" "/usr/lib/jvm/jdk1.7.0_06/bin/java" 1
+  
+  I need to run two extra steps:
+  
+    sudo update-alternatives --install "/usr/bin/java" "java" "/usr/lib/jvm/jdk1.7.0_06/bin/java" 1
+    sudo update-alternatives --config java
+  
+  as I had previously install (mutiple versions of) openjdk:
+  
+    dave@groningen:/usr/lib/jvm$ sudo update-alternatives --config java
+    update-alternatives: warning: alternative /usr/lib/jvm/jdk1.7.0/bin/java (part of link group java) doesn't exist. Removing from list of alternatives.
+  
+  There are 3 choices for the alternative java (providing /usr/bin/java).
+    Selection    Path                                           Priority   Status
+    ------------------------------------------------------------
+    0            /usr/lib/jvm/java-6-openjdk-i386/jre/bin/java   1061      auto mode
+    1            /usr/lib/jvm/java-6-openjdk-i386/jre/bin/java   1061      manual mode
+    2            /usr/lib/jvm/java-7-openjdk-i386/jre/bin/java   1051      manual mode
+   * 3            /usr/lib/jvm/jdk1.7.0_06/bin/java               1         manual mode
+    Press enter to keep the current choice[*], or type selection number: 3
+  
+  I now have 32-bit Sun/Oracle java
+  
+    dave@groningen:/usr/lib/jvm$ java -version
+    java version "1.7.0_06"
+    Java(TM) SE Runtime Environment (build 1.7.0_06-b24)
+    Java HotSpot(TM) Server VM (build 23.2-b09, mixed mode)
+  
+  on my 32 bit java:
+  
+    dave@groningen:/usr/lib/jvm$ uname -a
+    Linux groningen 3.2.0-27-generic-pae #43-Ubuntu SMP Fri Jul 6 15:06:05 UTC 2012 i686 i686 i386 GNU/Linux
+  
+  Below I give more backgrounds from my first attempt which would have except I tried to install 64-bit java on a 32-bit Ubuntu.
+  
+  ==Install Sun JDK over openJDK … background steps … but for 64bit not 32bit!==
+  
+  To run eclipse and aptana (IDE/plugin for PHP development) we need to replace openJDK:
+  
+    dave@groningen:~$ java -version
+    java version "1.6.0_24"
+    OpenJDK Runtime Environment (IcedTea6 1.11.3) (6b24-1.11.3-1ubuntu0.12.04.1)
+    OpenJDK Server VM (build 20.0-b12, mixed mode)
+  
+  and checking /usr/lib/jvm/ :
+  
+    dave@groningen:~/Downloads$ ls -l /usr/lib/jvm/
+    total 20
+    lrwxrwxrwx 1 root root   23 Dec  2  2011 default-java -> java-1.6.0-openjdk-i386
+    lrwxrwxrwx 1 root root   23 Dec  2  2011 java-1.6.0-openjdk -> java-1.6.0-openjdk-i386
+    lrwxrwxrwx 1 root root   19 Apr 13 03:57 java-1.6.0-openjdk-i386 -> java-6-openjdk-i386
+    lrwxrwxrwx 1 root root   19 Oct 21  2011 java-1.7.0-openjdk-i386 -> java-7-openjdk-i386
+    drwxr-xr-x 2 root root 4096 May  2 10:57 java-6-openjdk
+    drwxr-xr-x 3 root root 4096 May  2 10:45 java-6-openjdk-common
+    drwxr-xr-x 7 root root 4096 Jul 22 09:19 java-6-openjdk-i386
+    drwxr-xr-x 3 root root 4096 Mar 27 15:25 java-7-openjdk-common
+    drwxr-xr-x 5 root root 4096 Mar 27 15:26 java-7-openjdk-i386
+  
+  next I downloaded and unpacked the software from Oracle:
+  
+    cd /usr/lib/jvm sudo tar zxvf jdk-7-linux-x64.tar.gz
+  
+  updated the symbolic link from:
+  
+    dave@groningen:/usr/lib/jvm$ ls -l /usr/bin/java
+    lrwxrwxrwx 1 root root 22 Mar 27 15:26 /usr/bin/java -> /etc/alternatives/java
+    dave@groningen:/usr/lib/jvm$ ls -l /etc/alternatives/java
+    lrwxrwxrwx 1 root root 45 May  2 11:13 /etc/alternatives/java -> /usr/lib/jvm/java-6-openjdk- i386/jre/bin/java
+  
+  using update-alternatives :
+  
+    dave@groningen:/usr/lib/jvm$ sudo update-alternatives --install "/usr/bin/java" "java" "/usr/lib/jvm/jdk1.7.0/bin/java" 1
+  
+  but the bad news was:
+  
+    dave@groningen:/usr/lib/jvm$ which java
+    /usr/bin/java
+    dave@groningen:/usr/lib/jvm$ java -version
+    java version "1.6.0_24"
+    OpenJDK Runtime Environment (IcedTea6 1.11.3) (6b24-1.11.3-1ubuntu0.12.04.1)
+    OpenJDK Server VM (build 20.0-b12, mixed mode)
+  
+  and checking the alias these are
+  
+    dave@groningen:/usr/lib/jvm$ ls -l /usr/bin/java
+    lrwxrwxrwx 1 root root 22 Mar 27 15:26 /usr/bin/java -> /etc/alternatives/java
+    dave@groningen:/usr/lib/jvm$ ls -l /etc/alternatives/java
+    lrwxrwxrwx 1 root root 45 May  2 11:13 /etc/alternatives/java -> /usr/lib/jvm/java-6-openjdk-i386/jre/bin/java
+  
+  however after running:
+  
+    dave@groningen:/usr/lib/jvm$ sudo update-alternatives --config java
+  
+  There are 3 choices for the alternative java (providing /usr/bin/java).
+    Selection    Path                                           Priority   Status
+    ------------------------------------------------------------
+   * 0            /usr/lib/jvm/java-6-openjdk-i386/jre/bin/java   1061      auto mode
+    1            /usr/lib/jvm/java-6-openjdk-i386/jre/bin/java   1061      manual mode 
+    2            /usr/lib/jvm/java-7-openjdk-i386/jre/bin/java   1051      manual mode
+    3            /usr/lib/jvm/jdk1.7.0/bin/java                  1         manual mode
+  
+  Press enter to keep the current choice[*], or type selection number: 3
+  
+  update-alternatives: using /usr/lib/jvm/jdk1.7.0/bin/java to provide /usr/bin/java (java) in manual mode.
+  we have
+  
+    dave@groningen:/usr/lib/jvm$ java -version
+    bash: /usr/bin/java: cannot execute binary file
+    dave@groningen:/usr/lib/jvm$ /usr/lib/jvm/jdk1.7.0/bin/java -version
+    bash: /usr/lib/jvm/jdk1.7.0/bin/java: cannot execute binary file
+    dave@groningen:/usr/lib/jvm$ /usr/lib/jvm/java-7-openjdk-i386/jre/bin/java -version
+    java version "1.7.0_03"
+    OpenJDK Runtime Environment (IcedTea7 2.1.1pre) (7~u3-2.1.1~pre1-1ubuntu3)
+    OpenJDK Server VM (build 22.0-b10, mixed mode)
+  </pre>

@@ -1,0 +1,67 @@
+<pre>==How to run and debug Python on Visual Studio Code==
+
+  ===Youtube demo===
+  There is a nice demo of this on youtube by Eric Kwok : https://www.youtube.com/watch?v=doSPnFks5Vk
+  
+  ===Sample project - testVisualStudioCodePython===
+  
+  ====setup tasks.json under .vscode folder====
+  However it is pretty simple, under .vscode you need to create a tasks.json file
+  
+    ~/projects/testVisualStudioCodePython/.vscode $ cat tasks.json
+    // Available variables which can be used inside of strings.
+    // ${workspaceRoot}: the root folder of the team
+    // ${file}: the current opened file
+    // ${fileBasename}: the current opened file's basename
+    // ${fileDirname}: the current opened file's dirname
+    // ${fileExtname}: the current opened file's extension
+    // ${cwd}: the current working directory of the spawned process
+    // A task runner that calls a custom npm script that compiles the extension.
+    {
+      "version": "0.1.0",
+      // we want to run npm
+      "command": "python",
+      // the command is a shell script
+      "isShellCommand": true,
+      // show the output window only if unrecognized errors occur.
+      "showOutput": "always",
+      // we run the custom script "compile" as defined in package.json
+      "args": ["${file}"],
+      // The tsc compiler is started in watching mode
+      //"isWatching": true,
+      // use the standard tsc in watch mode problem matcher to find compile problems in the output.
+      //"problemMatcher": "$tsc-watch"
+    }
+  
+  ====Exec your python file via CMD+SHIFT+B====
+  Next to run, goto you python file in the VSC IDE e.g. :
+  
+    ~/projects/testVisualStudioCodePython/ $ cat hello_visual_studio_code_test.py
+    #!/usr/bin/python
+    for i in range(10):
+      print str(i) + ' hello world'
+  
+  and press CMD+SHIFT+B
+  
+  ===Install Python linting===
+    Cmd Shift P
+    ext install   <enter>
+  
+  Type python after ext install then select the extension you want to install i.e. Python which is by far the most popular extension
+  
+  and from the command line / bash:
+  
+    sudo python -m pip install astroid
+  
+  ==Outstanding questions==
+  To be honest at this stage, I will be almost as productive in Sublime Text.
+  
+  Two areas where the VSC IDE doesn't appear to help yet is:
+  
+  * No IntelliSense
+  * No Breakpoints
+  
+  Although according to https://code.visualstudio.com/Docs/languages/overview
+  
+  + IntelliSense, linting, outline : C++, CSS, HTML, JavaScript, JSON, Less, PHP, Python, Sass
+  </pre>

@@ -1,0 +1,626 @@
+<pre>Basic Docker
+  Install Docker on Ubuntu 16.04
+  Source: https://docs.docker.com/engine/installation/linux/ubuntulinux/
+  
+  Kernel
+  Check the kernel version, it should be at least 3.10 and the processor's chip should be 64bit:
+  
+  uname -r
+  Update
+  Update your package sources
+  
+  sudo apt-get update
+  sudo apt-get install apt-transport-https ca-certificates
+  sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+  docker.list
+  Remove all entries in the file below (create it if it doesn't exist):
+  
+  sudo vi /etc/apt/sources.list.d/docker.list
+  Then write and save (:wq)
+  
+  deb https://apt.dockerproject.org/repo ubuntu-xenial main
+  Second update
+  Update the packages again:
+  
+  sudo apt-get update
+  apt-cache policy docker-engine
+  Install Docker
+  sudo apt-get install linux-image-extra-$(uname -r) linux-image-extra-virtual
+  sudo apt-get install docker-engine
+  Start Docker
+  sudo service docker start
+  Hello World
+  Check Docker works with a Hello World image:
+  
+  sudo docker run hello-world
+  List all Docker images
+  sudo docker images
+  Install other Docker images
+  sudo docker run ubuntu
+  sudo docker run node
+  Container: interactive session
+  Start an interactive sessions in a Docker container:
+  
+  sudo docker run -t -i ubuntu /bin/bash
+  Note that any changes made while in that sessions will be lost when the container is stopped.
+  
+  List running containers
+  List all currently running containers (separate Terminal):
+  
+  sudo docker ps
+  Run your code inside a Docker container
+  If you want to create a Docker container (and pull the relevant Docker image if needed) from a Dockerfile for a given project, place a Dockerfile in the root of your project:
+  
+  FROM kyma/docker-nginx
+  ADD ./examples/dist/ /var/www
+  CMD 'nginx'
+  EXPOSE 80
+  Make sure the file is called `Dockerfile`
+  
+  In the Dockerfile above, you are pulling an image that will run nginx, will add code from your repo into /var/www of the container and open port 80.
+  
+  You can now build your Docker with:
+  
+  Note: don't forget the "." at the end of the first command to build the container.
+  
+  docker build -t examples .
+  docker run -p 80:80 -d examples
+  [Optional] To get command line access to the docker container:
+  
+  docker run -t -i examples /bin/bash
+  [Optional] To see files deployed to the docker container, run once inside the container:
+  
+  ls -l /var/www/
+  The files can be also run in a browser by going to:
+  
+  http://localhost/
+  
+  To kill a running Docker container, find its container ID:
+  
+  docker ps
+  then you can kill it with:
+  
+  docker kill [container id]
+  To see all docker images:
+  
+  docker images
+  The first time an image is built, it may take a while. If an image is no longer needed, it can be deleted:
+  
+  docker rmi [image id]
+  Note: if you intend to re-use an image, it's fine to let it be because next time a container starts from that image, it will be much faster.
+  
+  Force delete an image:
+  
+  docker rmi -f [image id]
+  Docker workshop notes
+  Introduction to Docker from Xebia at 'Dutch Devops Engineers' June 2016 meetup
+  Docker has amazing momentum in the last three years and shows little sign of slowing down.
+  
+  There was an excellent episode of Software Engineering Radio in January 2015 with James Turnball on Docker: http://www.se-radio.net/2015/01/episode-217-james-turnbull-on-docker/
+  
+  In June 2016 the 'Dutch Devops Engineers' meetup (http://www.meetup.com/devops-engineers/events/230313655/) organized a really good hands-on training session with Xebia. The main slide deck for this training session are online at : http://nauts.io/workshop-docker-introduction/#/
+  
+  Hello World and Starting Docker on MacOSX
+  You will need to pre-install Virtualbox and 'docker QuickStart Terminal'.
+  
+  Then when you start the 'docker QuickStart Terminal', this will open a terminal
+  
+  Last login: Tue Jun 28 17:27:42 on ttys032
+  bash --login '/Applications/Docker/Docker Quickstart Terminal.app/Contents/Resources/Scripts/start.sh'
+  ~ $ bash --login '/Applications/Docker/Docker Quickstart Terminal.app/Contents/Resources/Scripts/start.sh'
+  
+  
+                          ##         .
+                    ## ## ##        ==
+                 ## ## ## ## ##    ===
+             /"""""""""""""""""\___/ ===
+        [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) {~~ [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) 16:47, 3 January 2021 (UTC) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) 16:47, 3 January 2021 (UTC) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) ~ /  ===- [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]])
+             \______ o           __/
+               \    \         __/
+                \____\_______/
+  
+  
+  
+  docker is configured to use the default machine with IP 192.168.99.100
+  For help getting started, check out the docs at https://docs.docker.com
+  from here you can download the latest ubuntu docker image
+  
+  ~ $ docker pull ubuntu
+  Using default tag: latest
+  latest: Pulling from library/ubuntu
+  
+  5ba4f30e5bea: Pull complete
+  6874f9870f5f: Pull complete
+  4c876570bd7d: Pull complete
+  10fb34ebccea: Pull complete
+  Digest: [sha256key]
+  Status: Downloaded newer image for ubuntu:latest
+  and
+  
+  ~ $ docker run ubuntu /bin/echo "hello world"
+  hello world
+  Looking around inside a simple docker instance
+  ~ $ docker run -t -i ubuntu /bin/bash
+  root@21fcd2a981d6:/# ps -ef
+  UID        PID  PPID  C STIME TTY          TIME CMD
+  root         1     0  0 17:29 ?        00:00:00 /bin/bash
+  root         9     1  0 17:30 ?        00:00:00 ps -ef
+  root@21fcd2a981d6:/# ls
+  bin  boot  core  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
+  we are logged on as root
+  
+  root@21fcd2a981d6:/# id
+  uid=0(root) gid=0(root) groups=0(root)
+  root@21fcd2a981d6:/# which bash
+  /bin/bash
+  
+  and the environment variables:
+  
+  root@21fcd2a981d6:/# env
+  HOSTNAME=21fcd2a981d6
+  TERM=xterm
+  LS_COLORS=rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  PWD=/
+  SHLVL=1
+  HOME=/root
+  _=/usr/bin/env
+  and top shows a very cut down process list (compares to a regular ubuntu instance)
+  
+  root@21fcd2a981d6:/# top
+  top - 17:31:39 up  1:02,  0 users,  load average: 0.00, 0.01, 0.05
+  Tasks:   2 total,   1 running,   1 sleeping,   0 stopped,   0 zombie
+  %Cpu(s):  0.0 us,  0.0 sy,  0.0 ni,100.0 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+  KiB Mem :  2050412 total,  1609400 free,    51796 used,   389216 buff/cache
+  KiB Swap:  1443796 total,  1443796 free,        0 used.  1796452 avail Mem
+  
+    PID USER      PR  NI    VIRT    RES    SHR S %CPU %MEM     TIME+ COMMAND
+      1 root      20   0   18240   3336   2852 S  0.0  0.2   0:00.02 bash
+     15 root      20   0   36664   3104   2660 R  0.0  0.2   0:00.00 top
+  
+  Missing standard utils on cut down docker Ubuntu version - solution apt-get install netutils
+  root@21fcd2a981d6:/# ifconfig
+  bash: ifconfig: command not found
+  
+  To install ifconfig, first do an 'apt-get update'
+  
+  root@21fcd2a981d6:/# apt-get update
+  Get:1 http://archive.ubuntu.com/ubuntu xenial InRelease [247 kB]
+  Get:2 http://archive.ubuntu.com/ubuntu xenial-updates InRelease [94.5 kB]
+  Get:3 http://archive.ubuntu.com/ubuntu xenial-security InRelease [94.5 kB]
+  Get:4 http://archive.ubuntu.com/ubuntu xenial/main Sources [1103 kB]
+  Get:5 http://archive.ubuntu.com/ubuntu xenial/restricted Sources [5179 B]
+  Get:6 http://archive.ubuntu.com/ubuntu xenial/universe Sources [9802 kB]
+  Get:7 http://archive.ubuntu.com/ubuntu xenial/main amd64 Packages [1558 kB]
+  Get:8 http://archive.ubuntu.com/ubuntu xenial/restricted amd64 Packages [14.1 kB]
+  Get:9 http://archive.ubuntu.com/ubuntu xenial/universe amd64 Packages [9827 kB]
+  Get:10 http://archive.ubuntu.com/ubuntu xenial-updates/main Sources [104 kB]
+  Get:11 http://archive.ubuntu.com/ubuntu xenial-updates/restricted Sources [40 B]
+  Get:12 http://archive.ubuntu.com/ubuntu xenial-updates/universe Sources [55.3 kB]
+  Get:13 http://archive.ubuntu.com/ubuntu xenial-updates/main amd64 Packages [300 kB]
+  Get:14 http://archive.ubuntu.com/ubuntu xenial-updates/restricted amd64 Packages [40 B]
+  Get:15 http://archive.ubuntu.com/ubuntu xenial-updates/universe amd64 Packages [154 kB]
+  Get:16 http://archive.ubuntu.com/ubuntu xenial-security/main Sources [29.3 kB]
+  Get:17 http://archive.ubuntu.com/ubuntu xenial-security/restricted Sources [40 B]
+  Get:18 http://archive.ubuntu.com/ubuntu xenial-security/universe Sources [6425 B]
+  Get:19 http://archive.ubuntu.com/ubuntu xenial-security/main amd64 Packages [109 kB]
+  Get:20 http://archive.ubuntu.com/ubuntu xenial-security/restricted amd64 Packages [40 B]
+  Get:21 http://archive.ubuntu.com/ubuntu xenial-security/universe amd64 Packages [28.9 kB]
+  Fetched 23.5 MB in 3s (7665 kB/s)
+  Reading package lists... Done
+  Then we install netutils:
+  
+  root@21fcd2a981d6:/# apt-get install netutils
+  Reading package lists... Done
+  Building dependency tree
+  Reading state information... Done
+  E: Unable to locate package netutils
+  root@21fcd2a981d6:/# apt-get install net-tools
+  Reading package lists... Done
+  Building dependency tree
+  Reading state information... Done
+  The following NEW packages will be installed:
+    net-tools
+  0 upgraded, 1 newly installed, 0 to remove and 16 not upgraded.
+  Need to get 175 kB of archives.
+  After this operation, 725 kB of additional disk space will be used.
+  Get:1 http://archive.ubuntu.com/ubuntu xenial/main amd64 net-tools amd64 1.60-26ubuntu1 [175 kB]
+  Fetched 175 kB in 0s (2553 kB/s)
+  debconf: delaying package configuration, since apt-utils is not installed
+  Selecting previously unselected package net-tools.
+  (Reading database ... 7256 files and directories currently installed.)
+  Preparing to unpack .../net-tools_1.60-26ubuntu1_amd64.deb ...
+  Unpacking net-tools (1.60-26ubuntu1) ...
+  Setting up net-tools (1.60-26ubuntu1) …
+  and now :
+  
+  root@21fcd2a981d6:/# ifconfig
+  eth0      Link encap:Ethernet  HWaddr 02:42:ac:11:00:02
+            inet addr:172.17.0.2  Bcast:0.0.0.0  Mask:255.255.0.0
+            inet6 addr: fe80::42:acff:fe11:2/64 Scope:Link
+            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+            RX packets:3115 errors:0 dropped:0 overruns:0 frame:0
+            TX packets:2028 errors:0 dropped:0 overruns:0 carrier:0
+            collisions:0 txqueuelen:0
+            RX bytes:23880940 (23.8 MB)  TX bytes:114995 (114.9 KB)
+  
+  lo        Link encap:Local Loopback
+            inet addr:127.0.0.1  Mask:255.0.0.0
+            inet6 addr: ::1/128 Scope:Host
+            UP LOOPBACK RUNNING  MTU:65536  Metric:1
+            RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+            TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+            collisions:0 txqueuelen:1
+            RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+  Postgres and Docker
+  Running postgres via docker - the basics
+  I downloaded the postgres docker image a few months ago:
+  
+  ~ $ docker images
+  REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+  dpitts/mydemo       latest              9ceb589a1e6e        17 minutes ago      122.4 MB
+  ubuntu              latest              12543ced0f6f        2 weeks ago         122.4 MB
+  hello-world         latest              94df4f0ce8a4        8 weeks ago         967 B
+  <none>              <none>              44776f55294a        9 weeks ago         120.1 MB
+  jenkins             latest              83133a1cfbd9        9 weeks ago         711.9 MB
+  postgres            latest              0f3af79d8673        12 weeks ago        265.7 MB
+  starting postgres using 'docker run -P':
+  
+  ~ $ docker run -P postgres
+  The files belonging to this database system will be owned by user "postgres".
+  This user must also own the server process.
+  
+  The database cluster will be initialized with locale "en_US.utf8".
+  The default database encoding has accordingly been set to "UTF8".
+  The default text search configuration will be set to "english".
+  
+  Data page checksums are disabled.
+  
+  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+  creating subdirectories ... ok
+  selecting default max_connections ... 100
+  selecting default shared_buffers ... 128MB
+  selecting dynamic shared memory implementation ... posix
+  creating configuration files ... ok
+  creating template1 database in /var/lib/postgresql/data/base/1 ... ok
+  initializing pg_authid ... ok
+  initializing dependencies ... ok
+  creating system views ... ok
+  loading system objects' descriptions ... ok
+  creating collations ... ok
+  creating conversions ... ok
+  creating dictionaries ... ok
+  setting privileges on built-in objects ... ok
+  creating information schema ... ok
+  loading PL/pgSQL server-side language ... ok
+  vacuuming database template1 ... ok
+  copying template1 to template0 ... ok
+  copying template1 to postgres ... ok
+  syncing data to disk ... ok
+  
+  WARNING: enabling "trust" authentication for local connections
+  You can change this by editing pg_hba.conf or using the option -A, or
+  --auth-local and --auth-host, the next time you run initdb.
+  
+  Success. You can now start the database server using:
+  
+      pg_ctl -D /var/lib/postgresql/data -l logfile start
+  
+  ****************************************************
+  WARNING: No password has been set for the database.
+           This will allow anyone with access to the
+           Postgres port to access your database. In
+           Docker's default configuration, this is
+           effectively any other container on the same
+           system.
+  
+           Use "-e POSTGRES_PASSWORD=password" to set
+           it in "docker run".
+  ****************************************************
+  waiting for server to start....LOG:  database system was shut down at 2016-06-28 18:14:45 UTC
+  LOG:  MultiXact member wraparound protections are now enabled
+  LOG:  database system is ready to accept connections
+  LOG:  autovacuum launcher started
+   done
+  server started
+  ALTER ROLE
+  
+  
+  /docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+  
+  LOG:  received fast shutdown request
+  LOG:  aborting any active transactions
+  LOG:  autovacuum launcher shutting down
+  LOG:  shutting down
+  waiting for server to shut down....LOG:  database system is shut down
+   done
+  server stopped
+  
+  PostgreSQL init process complete; ready for start up.
+  
+  LOG:  database system was shut down at 2016-06-28 18:14:46 UTC
+  LOG:  MultiXact member wraparound protections are now enabled
+  LOG:  database system is ready to accept connections
+  LOG:  autovacuum launcher started
+  
+  ^CLOG:  received fast shutdown request
+  LOG:  aborting any active transactions
+  LOG:  autovacuum launcher shutting down
+  LOG:  shutting down
+  LOG:  database system is shut down
+  ~ $ docker run -P -d postgres
+  fc6314d978e48c38c5fb10455421603c84a6e666479197047c46e9ae2bbc216a
+  ~ $ docker logs fc6
+  The files belonging to this database system will be owned by user "postgres".
+  This user must also own the server process.
+  
+  The database cluster will be initialized with locale "en_US.utf8".
+  The default database encoding has accordingly been set to "UTF8".
+  The default text search configuration will be set to "english".
+  
+  Data page checksums are disabled.
+  
+  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+  creating subdirectories ... ok
+  selecting default max_connections ... 100
+  selecting default shared_buffers ... 128MB
+  selecting dynamic shared memory implementation ... posix
+  creating configuration files ... ok
+  creating template1 database in /var/lib/postgresql/data/base/1 ... ok
+  initializing pg_authid ... ok
+  initializing dependencies ... ok
+  creating system views ... ok
+  loading system objects' descriptions ... ok
+  creating collations ... ok
+  creating conversions ... ok
+  creating dictionaries ... ok
+  setting privileges on built-in objects ... ok
+  creating information schema ... ok
+  loading PL/pgSQL server-side language ... ok
+  vacuuming database template1 ... ok
+  copying template1 to template0 ... ok
+  copying template1 to postgres ... ok
+  syncing data to disk ... ok
+  
+  WARNING: enabling "trust" authentication for local connections
+  You can change this by editing pg_hba.conf or using the option -A, or
+  --auth-local and --auth-host, the next time you run initdb.
+  
+  Success. You can now start the database server using:
+  
+      pg_ctl -D /var/lib/postgresql/data -l logfile start
+  
+  ****************************************************
+  WARNING: No password has been set for the database.
+           This will allow anyone with access to the
+           Postgres port to access your database. In
+           Docker's default configuration, this is
+           effectively any other container on the same
+           system.
+  
+           Use "-e POSTGRES_PASSWORD=password" to set
+           it in "docker run".
+  ****************************************************
+  waiting for server to start....LOG:  database system was shut down at 2016-06-28 18:15:15 UTC
+  LOG:  MultiXact member wraparound protections are now enabled
+  LOG:  database system is ready to accept connections
+  LOG:  autovacuum launcher started
+   done
+  server started
+  ALTER ROLE
+  
+  
+  /docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+  
+  LOG:  received fast shutdown request
+  LOG:  aborting any active transactions
+  LOG:  autovacuum launcher shutting down
+  LOG:  shutting down
+  waiting for server to shut down....LOG:  database system is shut down
+   done
+  server stopped
+  
+  PostgreSQL init process complete; ready for start up.
+  
+  LOG:  database system was shut down at 2016-06-28 18:15:16 UTC
+  LOG:  MultiXact member wraparound protections are now enabled
+  LOG:  database system is ready to accept connections
+  LOG:  autovacuum launcher started
+                                    naughty_meitner
+  now from 'docker ps' we can see the port mapping i.e. 32769->5432:
+  
+  ~ $ docker ps
+  CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                     NAMES
+  fc6314d978e4        postgres            "/docker-entrypoint.s"   22 seconds ago      Up 21 seconds       0.0.0.0:32769->5432/tcp   mad_davinci
+  ecf58321f88d        dpitts/mydemo       "/bin/bash"              13 minutes ago      Up 2 minutes
+  and then the DOCKER_HOST IP address
+  
+  ~ $ echo $DOCKER_HOST
+  tcp://192.168.99.100:2376
+  
+  and now we can connect to postgres:
+  
+  ~ $ psql --port 32769 --username 'postgres' --host 192.168.99.100
+  psql (9.4.5, server 9.5.2)
+  WARNING: psql major version 9.4, server major version 9.5.
+           Some psql features might not work.
+  Type "help" for help.
+  
+  postgres=# \d
+  No relations found.
+  postgres=# \l
+                                   List of databases
+     Name    |  Owner   | Encoding |  Collate   |   Ctype    |   Access privileges
+  -----------+----------+----------+------------+------------+-----------------------
+   postgres  | postgres | UTF8     | en_US.utf8 | en_US.utf8 |
+   template0 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+             |          |          |            |            | postgres=CTc/postgres
+   template1 | postgres | UTF8     | en_US.utf8 | en_US.utf8 | =c/postgres          +
+             |          |          |            |            | postgres=CTc/postgres
+  (3 rows)
+  Running postgres via docker - setting up persistent storage outside the docker image
+  Very few people (i.e. almost no one) appears to be recommending using docker for production database yet!?
+  
+  ~ $ docker run -P -d -v /tmp/postgresdata:/var/lib/postgres/data postgres
+  e8bb226c2d80f80817247052cd215a720436a6c56e46902ca73fba9898708b79
+  However the above /tmp/postgresdata directory is not persist directly on my host macosx server, interestingly we need log into
+  
+  
+  ~ $ docker-machine ssh default
+                          ##         .
+                    ## ## ##        ==
+                 ## ## ## ## ##    ===
+             /"""""""""""""""""\___/ ===
+        [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) {~~ [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) 16:47, 3 January 2021 (UTC) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) 16:47, 3 January 2021 (UTC) [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]]) ~ /  ===- [[User:Thomas|Thomas]] ([[User talk:Thomas|talk]])
+             \______ o           __/
+               \    \         __/
+                \____\_______/
+   _                 _   ____     _            _
+  | |__   ___   ___ | |_|___ \ __| | ___   ___| | _____ _ __
+  | '_ \ / _ \ / _ \| __| __) / _` |/ _ \ / __| |/ / _ \ '__|
+  | |_) | (_) | (_) | |_ / __/ (_| | (_) | (__|   <  __/ |
+  |_.__/ \___/ \___/ \__|_____\__,_|\___/ \___|_|\_\___|_|
+  Boot2Docker version 1.11.1, build HEAD : 7954f54 - Wed Apr 27 16:36:45 UTC 2016
+  Docker version 1.11.1, build 5604cbe
+  Docker inspect and layers
+  Docker images are made of immutable layers, this can be seen via the 'docker inspect' command:
+  
+  ~ $ docker ps
+  CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                     NAMES
+  fc6314d978e4        postgres            "/docker-entrypoint.s"   4 days ago          Up 4 days           0.0.0.0:32769->5432/tcp   mad_davinci
+  ecf58321f88d        dpitts/mydemo       "/bin/bash"              4 days ago          Up 4 days                                     naughty_meitner
+  ~ $ docker inspect postgres
+  [
+      {
+          "Id": "[sha256key]",
+          "RepoTags": [
+              "postgres:latest"
+          ],
+          "RepoDigests": [],
+          "Parent": "",
+          "Comment": "",
+          "Created": "2016-04-05T03:14:45.091737893Z",
+          "Container": "6543d2260c93664a89679214c8a7624d66ebedc4bb114c5e7ba1a7b99ef57422",
+          "ContainerConfig": {
+              "Hostname": "bcad5a346f31",
+              "Domainname": "",
+              "User": "",
+              "AttachStdin": false,
+              "AttachStdout": false,
+              "AttachStderr": false,
+              "ExposedPorts": {
+                  "5432/tcp": {}
+              },
+              "Tty": false,
+              "OpenStdin": false,
+              "StdinOnce": false,
+              "Env": [
+                  "PATH=/usr/lib/postgresql/9.5/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                  "GOSU_VERSION=1.7",
+                  "LANG=en_US.utf8",
+                  "PG_MAJOR=9.5",
+                  "PG_VERSION=9.5.2-1.pgdg80+1",
+                  "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Cmd": [
+                  "/bin/sh",
+                  "-c",
+                  "#(nop) CMD [\"postgres\"]"
+              ],
+              "Image": "84a1cbe8c2b7a4df5751151ffa311540200bc04e4b8c2b3d9a049e9fc2b4b829",
+              "Volumes": {
+                  "/var/lib/postgresql/data": {}
+              },
+              "WorkingDir": "",
+              "Entrypoint": [
+                  "/docker-entrypoint.sh"
+              ],
+              "OnBuild": [],
+              "Labels": {}
+          },
+          "DockerVersion": "1.9.1",
+          "Author": "",
+          "Config": {
+              "Hostname": "bcad5a346f31",
+              "Domainname": "",
+              "User": "",
+              "AttachStdin": false,
+              "AttachStdout": false,
+              "AttachStderr": false,
+              "ExposedPorts": {
+                  "5432/tcp": {}
+              },
+              "Tty": false,
+              "OpenStdin": false,
+              "StdinOnce": false,
+              "Env": [
+                  "PATH=/usr/lib/postgresql/9.5/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                  "GOSU_VERSION=1.7",
+                  "LANG=en_US.utf8",
+                  "PG_MAJOR=9.5",
+                  "PG_VERSION=9.5.2-1.pgdg80+1",
+                  "PGDATA=/var/lib/postgresql/data"
+              ],
+              "Cmd": [
+                  "postgres"
+              ],
+              "Image": "84a1cbe8c2b7a4df5751151ffa311540200bc04e4b8c2b3d9a049e9fc2b4b829",
+              "Volumes": {
+                  "/var/lib/postgresql/data": {}
+              },
+              "WorkingDir": "",
+              "Entrypoint": [
+                  "/docker-entrypoint.sh"
+              ],
+              "OnBuild": [],
+              "Labels": {}
+          },
+          "Architecture": "amd64",
+          "Os": "linux",
+          "Size": 265730589,
+          "VirtualSize": 265730589,
+          "GraphDriver": {
+              "Name": "aufs",
+              "Data": null
+          },
+          "RootFS": {
+              "Type": "layers",
+              "Layers": [
+                  "[sha256keys]"
+              ]
+          }
+      }
+  ]
+  above there are 22 "sha256" entries unders "Layers" ... each representing another immutable layer in the docker image, built on top of each itself.
+  
+  NodeJS and Docker (to be completed ... some outstanding functional issues)
+  Create a Dockerfile
+  # Pull base image.
+  FROM node:slim
+  
+  # Define working directory
+  WORKDIR www
+  
+  # Copy files from current folder
+  ADD ./ /www
+  
+  # Install NPM dependencies
+  RUN npm install
+  
+  # Binary may be called nodejs instead of node
+  RUN ln -s /usr/bin/nodejs /usr/bin/node
+  
+  # Listen on the specified network ports
+  EXPOSE 3000
+  
+  # Executing defaults
+  CMD ["node", "server.js"]
+  Start running the Docker from its Dockerfile
+  docker build -t <your username>/node-web-app .
+  Where node-web-app is the name of your Docker container.
+  
+  Get the name of running Docker containers
+  docker ps
+  Get into the running Docker container
+  docker exec -ti name-of-the-container /bin/bash
+  </pre>

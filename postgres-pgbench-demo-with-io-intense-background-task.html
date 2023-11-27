@@ -1,0 +1,405 @@
+<pre>= Demo of pgbench with large & small sized DB =
+
+  == Summary ==
+  This page documents the results of some pgbench results run from https://github.com/dgapitts/vagrant-postgres12.
+  
+  For some time I've been wondering about the impact of expensive background (OLAP) tasks (taking 1000) on standard OLTP short queries (taking 1 or 2 ms):
+  * the background tasks are clearly using CPU and IO in themselves
+  * but also this may flush the shared_buffers and so slow down other regular OLTP 
+  * are these background tasks going to be even more expensive with pg12 which parallelization enabled by default
+  
+  NB Typically a modern database is running 1000s of concurrent OLTP queries but only a handful of OLAP queries (which should ideally be run on a read-replica)
+  
+  <blockquote>
+  OLTP and OLAP: The two terms look similar but refer to different kinds of systems. Online transaction processing (OLTP) captures, stores, and processes data from transactions in real-time. Online analytical processing (OLAP) uses complex queries to analyze aggregated historical data from OLTP systems.
+  
+  https://www.stitchdata.com/resources/oltp-vs-olap
+  </blockquote>
+  
+  == Background ==
+  === Postgres shared_buffers  only 128Mb ===
+  
+    postgres=# show shared_buffers;
+    shared_buffers
+    ----------------
+    128MB
+    (1 row)
+  
+  i.e. as per details below, these 128Mb shared_buffers could cache the smaller DB (approx 40Mb) but not the larger DB (400mb)
+  
+  == Setup Details ==
+  
+  === pgbench scripts with scale factor 30 and 3 ===
+  
+    # initial data load for 
+    su -c "/usr/pgsql-12/bin/pgbench -i -s 30" -s /bin/sh bench1
+    su -c "/usr/pgsql-12/bin/pgbench -i -s 3" -s /bin/sh vagrant
+  
+  === Large table review ===
+  
+  ==== bench1 database scale factor 30 ====
+  
+    [pg12centos7:postgres:/pgmon] # psql -f /pgmon/top_20_relations.sql -d bench1
+              relation           |    size
+    ------------------------------+------------
+    public.pgbench_accounts      | 384 MB
+    public.pgbench_accounts_pkey | 64 MB
+    pg_toast.pg_toast_2618       | 456 kB
+    pg_toast.pg_toast_2619       | 24 kB
+    public.pgbench_tellers_pkey  | 16 kB
+    public.pgbench_tellers       | 16 kB
+    pg_toast.pg_toast_2619_index | 16 kB
+    pg_toast.pg_toast_2618_index | 16 kB
+    public.pgbench_branches_pkey | 16 kB
+    pg_toast.pg_toast_3394_index | 8192 bytes
+    pg_toast.pg_toast_3456_index | 8192 bytes
+    public.pgbench_branches      | 8192 bytes
+    pg_toast.pg_toast_2612_index | 8192 bytes
+    pg_toast.pg_toast_2606_index | 8192 bytes
+    pg_toast.pg_toast_2604_index | 8192 bytes
+    pg_toast.pg_toast_2328_index | 8192 bytes
+    pg_toast.pg_toast_1417_index | 8192 bytes
+    pg_toast.pg_toast_2609_index | 8192 bytes
+    pg_toast.pg_toast_3466_index | 8192 bytes
+    pg_toast.pg_toast_826_index  | 8192 bytes
+    (20 rows)
+  
+  
+  
+  
+  ==== vagrant database scale factor 3 ====
+  
+    [pg12centos7:postgres:/pgmon] # psql -f /pgmon/top_20_relations.sql -d vagrant
+              relation           |    size
+    ------------------------------+------------
+    public.pgbench_accounts      | 39 MB
+    public.pgbench_accounts_pkey | 6600 kB
+    public.pgbench_history       | 840 kB
+    pg_toast.pg_toast_2618       | 456 kB
+    public.pgbench_tellers       | 48 kB
+    public.pgbench_branches      | 32 kB
+    pg_toast.pg_toast_2619       | 24 kB
+    pg_toast.pg_toast_2618_index | 16 kB
+    public.pgbench_tellers_pkey  | 16 kB
+    public.pgbench_branches_pkey | 16 kB
+    pg_toast.pg_toast_2619_index | 16 kB
+    pg_toast.pg_toast_3118_index | 8192 bytes
+    pg_toast.pg_toast_3456_index | 8192 bytes
+    pg_toast.pg_toast_2606_index | 8192 bytes
+    pg_toast.pg_toast_3394_index | 8192 bytes
+    pg_toast.pg_toast_2604_index | 8192 bytes
+    pg_toast.pg_toast_2600_index | 8192 bytes
+    pg_toast.pg_toast_2328_index | 8192 bytes
+    pg_toast.pg_toast_2609_index | 8192 bytes
+    pg_toast.pg_toast_3466_index | 8192 bytes
+    (20 rows)
+  
+  ==== /pgmon/top_20_relations.sql ====
+  
+  This is from https://wiki.postgresql.org/wiki/Disk_Usage  
+  
+    [pg12centos7:vagrant:~] # cat /pgmon/top_20_relations.sql
+    -- https://wiki.postgresql.org/wiki/Disk_Usage
+    SELECT nspname || '.' || relname AS "relation",
+        pg_size_pretty(pg_relation_size(C.oid)) AS "size"
+      FROM pg_class C
+      LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
+      WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+      ORDER BY pg_relation_size(C.oid) DESC
+      LIMIT 20;
+  
+  === Expensive Table Scan background query i.e. Parallel Seq Scan on pgbench_accounts  ===
+  
+  Note these 'Parallel Seq Scan on pgbench_accounts' operations are too large to buffer: 
+  
+    [pg12centos7:bench1:~] # cat /vagrant/slow_pgbench_query1.sql
+    explain (analyze,buffers) select max(abalance) from pgbench_accounts where bid = 7;
+    [pg12centos7:bench1:~] # for i in {1..100};do psql -f /vagrant/slow_pgbench_query1.sql;sleep 1;done
+                                                                          QUERY PLAN
+    -------------------------------------------------------------------------------------------------------------------------------------------------------
+    Finalize Aggregate  (cost=65914.76..65914.77 rows=1 width=4) (actual time=2889.781..2893.542 rows=1 loops=1)
+      Buffers: shared hit=9518 read=39663
+      ->  Gather  (cost=65914.54..65914.75 rows=2 width=4) (actual time=2880.967..2893.514 rows=3 loops=1)
+            Workers Planned: 2
+            Workers Launched: 2
+            Buffers: shared hit=9518 read=39663
+            ->  Partial Aggregate  (cost=64914.54..64914.55 rows=1 width=4) (actual time=2841.534..2841.536 rows=1 loops=3)
+                  Buffers: shared hit=9518 read=39663
+                  ->  Parallel Seq Scan on pgbench_accounts  (cost=0.00..64806.00 rows=43417 width=4) (actual time=1211.871..2832.886 rows=33333 loops=3)
+                        Filter: (bid = 7)
+                        Rows Removed by Filter: 966667
+                        Buffers: shared hit=9518 read=39663
+    Planning Time: 2.411 ms
+    Execution Time: 2945.357 ms
+    (14 rows)
+                                                                          QUERY PLAN
+    ------------------------------------------------------------------------------------------------------------------------------------------------------
+    Finalize Aggregate  (cost=65914.76..65914.77 rows=1 width=4) (actual time=1164.868..1165.104 rows=1 loops=1)
+      Buffers: shared hit=9542 read=39639
+      ->  Gather  (cost=65914.54..65914.75 rows=2 width=4) (actual time=1154.430..1165.078 rows=3 loops=1)
+            Workers Planned: 2
+            Workers Launched: 2
+            Buffers: shared hit=9542 read=39639
+            ->  Partial Aggregate  (cost=64914.54..64914.55 rows=1 width=4) (actual time=1132.102..1132.148 rows=1 loops=3)
+                  Buffers: shared hit=9542 read=39639
+                  ->  Parallel Seq Scan on pgbench_accounts  (cost=0.00..64806.00 rows=43417 width=4) (actual time=482.773..1123.747 rows=33333 loops=3)
+                        Filter: (bid = 7)
+                        Rows Removed by Filter: 966667
+                        Buffers: shared hit=9542 read=39639
+    Planning Time: 1.054 ms
+    Execution Time: 1190.429 ms
+    (14 rows)
+    ...
+  
+  i.e. even with no other processing about 80% of reads are physical (shared hit=9542 read=39639)
+  == Run time details ==
+  
+  
+  === Run1 with background sl ow_pgbench_query1.sql running in a background loop as above - 560 tps - average latency 10.7ms ===
+  
+  
+    [pg12centos7:vagrant:~] # uptime;pgbench -c 6 -j 2 -t 10000;uptime
+    21:53:40 up  5:26,  4 users,  load average: 2.47, 1.26, 0.80
+    starting vacuum...end.
+    transaction type: <builtin: TPC-B (sort of)>
+    scaling factor: 3
+    query mode: simple
+    number of clients: 6
+    number of threads: 2
+    number of transactions per client: 10000
+    number of transactions actually processed: 60000/60000
+    latency average = 10.716 ms
+    tps = 559.921798 (including connections establishing)
+    tps = 559.957781 (excluding connections establishing)
+    21:55:28 up  5:28,  4 users,  load average: 4.36, 2.33, 1.24
+  
+  
+  
+  
+  ==== sar cpu data - almost zero idle CPU and high iowaits ====
+   
+    Linux 3.10.0-862.2.3.el7.x86_64 (pg12centos7) 	01/09/2021 	_x86_64_	(2 CPU)
+    12:00:01 AM     CPU     %user     %nice   %system   %iowait    %steal     %idle
+    09:52:01 PM     all      0.53      0.00      1.23      0.38      0.00     97.86
+    09:53:01 PM     all     28.08      0.00     32.22      3.10      0.00     36.61
+    09:54:02 PM     all     27.59      0.00     37.82      7.80      0.00     26.78
+    09:55:02 PM     all     37.38      0.00     49.30     10.43      0.00      2.89
+    09:56:01 PM     all     19.27      0.00     30.86     15.79      0.00     34.08
+    09:57:01 PM     all      0.12      0.00      0.32      0.00      0.00     99.56
+    09:58:01 PM     all      0.13      0.00      0.23      0.01      0.00     99.62
+  
+  
+  
+  === Run2 without background background task - 1130 tps - average latency 5.2ms ===
+  
+    [pg12centos7:vagrant:~] # sleep 120;uptime;pgbench -c 6 -j 2 -t 10000;uptime
+    21:58:31 up  5:31,  4 users,  load average: 0.20, 1.25, 1.02
+    starting vacuum...end.
+    transaction type: <builtin: TPC-B (sort of)>
+    scaling factor: 3
+    query mode: simple
+    number of clients: 6
+    number of threads: 2
+    number of transactions per client: 10000
+    number of transactions actually processed: 60000/60000
+    latency average = 5.268 ms
+    tps = 1138.920897 (including connections establishing)
+    tps = 1139.072917 (excluding connections establishing)
+    21:59:23 up  5:32,  4 users,  load average: 2.59, 1.73, 1.19
+  
+  
+  
+  ==== sar cpu data - plenty of idle CPU and low iowaits ====
+  
+    Linux 3.10.0-862.2.3.el7.x86_64 (pg12centos7) 	01/09/2021 	_x86_64_	(2 CPU)
+    12:00:01 AM     CPU     %user     %nice   %system   %iowait    %steal     %idle
+    09:57:01 PM     all      0.12      0.00      0.32      0.00      0.00     99.56
+    09:58:01 PM     all      0.13      0.00      0.23      0.01      0.00     99.62
+    09:59:01 PM     all     23.40      0.00     23.14      1.12      0.00     52.34
+    10:00:02 PM     all     17.05      0.00     16.43      0.65      0.00     65.87
+    10:01:01 PM     all      0.16      0.00      0.49      0.07      0.00     99.28
+    10:02:01 PM     all      0.13      0.00      0.26      0.00      0.00     99.62
+  
+  === Run3 for completeness I reviewed the OS load metrics for JUST the background background task ===
+  
+  Same script with 100 loops as before:
+  
+    [pg12centos7:bench1:~] # uptime;for i in {1..100};do psql -f /vagrant/slow_pgbench_query1.sql;sleep 1;done;uptime
+    02:45:26 up 10:18,  4 users,  load average: 0.03, 0.03, 0.05
+                                                                          QUERY PLAN
+    ------------------------------------------------------------------------------------------------------------------------------------------------------
+    Finalize Aggregate  (cost=65914.76..65914.77 rows=1 width=4) (actual time=4022.162..4023.793 rows=1 loops=1)
+      Buffers: shared hit=9597 read=39584
+      ->  Gather  (cost=65914.54..65914.75 rows=2 width=4) (actual time=4014.668..4023.740 rows=3 loops=1)
+            Workers Planned: 2
+            Workers Launched: 2
+            Buffers: shared hit=9597 read=39584
+            ->  Partial Aggregate  (cost=64914.54..64914.55 rows=1 width=4) (actual time=4004.414..4004.416 rows=1 loops=3)
+                  Buffers: shared hit=9597 read=39584
+                  ->  Parallel Seq Scan on pgbench_accounts  (cost=0.00..64806.00 rows=43417 width=4) (actual time=296.673..3995.465 rows=33333 loops=3)
+                        Filter: (bid = 7)
+                        Rows Removed by Filter: 966667
+                        Buffers: shared hit=9597 read=39584
+    Planning Time: 1.220 ms
+    Execution Time: 4024.017 ms
+    (14 rows)
+                                                                        QUERY PLAN
+    ------------------------------------------------------------------------------------------------------------------------------------------------------
+    Finalize Aggregate  (cost=65914.76..65914.77 rows=1 width=4) (actual time=2292.141..2294.415 rows=1 loops=1)
+      Buffers: shared hit=9640 read=39541
+      ->  Gather  (cost=65914.54..65914.75 rows=2 width=4) (actual time=2283.703..2294.390 rows=3 loops=1)
+            Workers Planned: 2
+            Workers Launched: 2
+            Buffers: shared hit=9640 read=39541
+            ->  Partial Aggregate  (cost=64914.54..64914.55 rows=1 width=4) (actual time=2265.713..2265.714 rows=1 loops=3)
+                  Buffers: shared hit=9640 read=39541
+                  ->  Parallel Seq Scan on pgbench_accounts  (cost=0.00..64806.00 rows=43417 width=4) (actual time=227.484..2258.855 rows=33333 loops=3)
+                        Filter: (bid = 7)
+                        Rows Removed by Filter: 966667
+                        Buffers: shared hit=9640 read=39541
+    Planning Time: 1.479 ms
+    Execution Time: 2294.669 ms
+    (14 rows)
+    ...
+                                                                          QUERY PLAN
+    ------------------------------------------------------------------------------------------------------------------------------------------------------
+    Finalize Aggregate  (cost=65914.76..65914.77 rows=1 width=4) (actual time=1647.405..1655.656 rows=1 loops=1)
+      Buffers: shared hit=16054 read=33127
+      ->  Gather  (cost=65914.54..65914.75 rows=2 width=4) (actual time=1645.803..1655.630 rows=3 loops=1)
+            Workers Planned: 2
+            Workers Launched: 2
+            Buffers: shared hit=16054 read=33127
+            ->  Partial Aggregate  (cost=64914.54..64914.55 rows=1 width=4) (actual time=1636.037..1636.039 rows=1 loops=3)
+                  Buffers: shared hit=16054 read=33127
+                  ->  Parallel Seq Scan on pgbench_accounts  (cost=0.00..64806.00 rows=43417 width=4) (actual time=111.781..1629.948 rows=33333 loops=3)
+                        Filter: (bid = 7)
+                        Rows Removed by Filter: 966667
+                        Buffers: shared hit=16054 read=33127
+    Planning Time: 0.967 ms
+    Execution Time: 1655.905 ms
+    (14 rows)
+    02:51:06 up 10:23,  4 users,  load average: 2.57, 1.68, 0.77
+  
+  
+  ==== sar cpu data - plenty of idle CPU and high iowaits as expected but plenty of idle (spare) CPU ====
+  
+  and while the iowaits are still high we still have spare (idle) cpu capacity
+  
+    Linux 3.10.0-862.2.3.el7.x86_64 (pg12centos7) 	01/10/2021 	_x86_64_	(2 CPU)
+    12:00:01 AM     CPU     %user     %nice   %system   %iowait    %steal     %idle
+    02:42:01 AM     all      0.11      0.00      0.18      0.00      0.00     99.72
+    02:43:01 AM     all      0.10      0.00      0.17      0.00      0.00     99.73
+    02:44:01 AM     all      0.11      0.00      0.20      0.00      0.00     99.69
+    02:45:01 AM     all      0.12      0.00      0.20      0.00      0.00     99.68
+    02:46:02 AM     all      5.28      0.00     10.88     14.87      0.00     68.98
+    02:47:01 AM     all      9.60      0.00     20.30     21.71      0.00     48.39
+    02:48:03 AM     all      8.64      0.00     16.44     39.10      0.00     35.82
+    02:49:04 AM     all      8.31      0.00     16.75     37.47      0.00     37.47
+    02:50:03 AM     all      7.32      0.00     14.73     45.54      0.00     32.40
+    02:51:02 AM     all      9.52      0.00     19.55     29.72      0.00     41.21
+    02:52:01 AM     all      0.62      0.00      1.30      1.16      0.00     96.91
+    02:53:01 AM     all      0.13      0.00      0.27      0.02      0.00     99.58
+    Average:        all      0.35      0.00      0.69      0.93      0.00     98.03
+  
+  == Appendix A - disable parallelization == 
+  
+  new version of the script with parallelism disabled via 'SET max_parallel_workers_per_gather = 0' 
+  
+    [pg12centos7:bench1:~] # sdiff /vagrant/slow_pgbench_query1.sql /vagrant/slow_pgbench_query1_non-parallel.sql
+                        >	SET max_parallel_workers_per_gather = 0;
+    explain (analyze,buffers) select max(abalance) from pgbench_a	explain (analyze,buffers) select max(abalance) from pgbench_a
+  
+  === Run4 reviewed new non-parallel execution plan and the OS load metrics for JUST the background background task ===
+  
+  
+  interesting the non-parallel query is actually faster in its own right:
+  
+    [pg12centos7:bench1:~] # uptime;for i in {1..100};do psql -f /vagrant/slow_pgbench_query1_non-parallel.sql;sleep 1;done;uptime
+    16:19:12 up 1 min,  1 user,  load average: 0.02, 0.01, 0.01
+    SET
+                                                                QUERY PLAN
+    -----------------------------------------------------------------------------------------------------------------------------------
+    Aggregate  (cost=86941.50..86941.51 rows=1 width=4) (actual time=1157.208..1157.209 rows=1 loops=1)
+      Buffers: shared hit=96 read=49085
+      ->  Seq Scan on pgbench_accounts  (cost=0.00..86681.00 rows=104200 width=4) (actual time=224.775..1144.202 rows=100000 loops=1)
+            Filter: (bid = 7)
+            Rows Removed by Filter: 2900000
+            Buffers: shared hit=96 read=49085
+    Planning Time: 0.641 ms
+    Execution Time: 1158.007 ms
+    (8 rows)
+    SET
+                                                                QUERY PLAN
+    -----------------------------------------------------------------------------------------------------------------------------------
+    Aggregate  (cost=86941.50..86941.51 rows=1 width=4) (actual time=1084.899..1084.901 rows=1 loops=1)
+      Buffers: shared hit=128 read=49053
+      ->  Seq Scan on pgbench_accounts  (cost=0.00..86681.00 rows=104200 width=4) (actual time=228.813..1073.863 rows=100000 loops=1)
+            Filter: (bid = 7)
+            Rows Removed by Filter: 2900000
+            Buffers: shared hit=128 read=49053
+    Planning Time: 0.687 ms
+    Execution Time: 1085.698 ms
+    (8 rows)
+    ...
+    SET
+                                                                QUERY PLAN
+    ----------------------------------------------------------------------------------------------------------------------------------
+    Aggregate  (cost=86941.50..86941.51 rows=1 width=4) (actual time=964.837..964.840 rows=1 loops=1)
+      Buffers: shared hit=3264 read=45917
+      ->  Seq Scan on pgbench_accounts  (cost=0.00..86681.00 rows=104200 width=4) (actual time=157.806..955.287 rows=100000 loops=1)
+            Filter: (bid = 7)
+            Rows Removed by Filter: 2900000
+            Buffers: shared hit=3264 read=45917
+    Planning Time: 1.795 ms
+    Execution Time: 965.125 ms
+    (8 rows)
+  
+    16:23:11 up 5 min,  2 users,  load average: 0.59, 0.39, 0.16
+  
+  ==== sar cpu data -  lower iowaits and plenty of idle (spare) CPU ====
+  
+  and reviewing sar -u
+  
+    Linux 3.10.0-862.2.3.el7.x86_64 (pg12centos7) 	01/10/2021 	_x86_64_	(2 CPU)
+    12:00:01 AM     CPU     %user     %nice   %system   %iowait    %steal     %idle
+    04:20:01 PM     all      4.68      0.00     16.96      5.30      0.00     73.07
+    04:21:02 PM     all      5.39      0.00     20.35      5.82      0.00     68.44
+    04:22:02 PM     all      5.45      0.00     18.56      4.44      0.00     71.55
+    04:23:01 PM     all      5.31      0.00     17.41      5.26      0.00     72.02
+    04:24:01 PM     all      1.06      0.00      3.84      0.98      0.00     94.12
+    04:25:02 PM     all      0.03      0.00      0.08      0.01      0.00     99.89
+  
+  === Run5 non-parallel background task and rerunning standard OLTP pgbanch test - 630 tps - average latency 9.4ms ===
+  
+  In a second session, I'm simultaneously running the non-parallel background take 
+  interesting the non-parallel query is actually faster in its own right:
+  
+    [pg12centos7:vagrant:~] # uptime;pgbench -c 6 -j 2 -t 10000;uptime
+    17:24:32 up  1:07,  2 users,  load average: 0.00, 0.01, 0.05
+    starting vacuum...end.
+    transaction type: <builtin: TPC-B (sort of)>
+    scaling factor: 3
+    query mode: simple
+    number of clients: 6
+    number of threads: 2
+    number of transactions per client: 10000
+    number of transactions actually processed: 60000/60000
+    latency average = 9.497 ms
+    tps = 631.798828 (including connections establishing)
+    tps = 631.853737 (excluding connections establishing)
+    17:26:07 up  1:08,  2 users,  load average: 3.34, 1.15, 0.45
+  
+  ==== sar cpu data -  lower iowaits but higher system%cpu ====
+  
+  and reviewing sar -u, interesting we have lower iowaits but higher system%cpu ... I guess this is because the pgbench processing is running faster / more activity
+  
+    [pg12centos7:vagrant:~] # saru30
+    Linux 3.10.0-862.2.3.el7.x86_64 (pg12centos7) 	01/10/2021 	_x86_64_	(2 CPU)
+    12:00:01 AM     CPU     %user     %nice   %system   %iowait    %steal     %idle
+    05:23:01 PM     all      0.09      0.00      0.19      0.00      0.00     99.72
+    05:24:01 PM     all      0.11      0.00      0.22      0.00      0.00     99.67
+    05:25:01 PM     all     16.18      0.00     22.60      8.35      0.00     52.87
+    05:26:02 PM     all     38.39      0.00     48.00     10.61      0.00      2.99
+    05:27:01 PM     all      8.48      0.00     20.82      4.81      0.00     65.89
+    05:28:01 PM     all      5.56      0.00     17.82      8.27      0.00     68.34
+  </pre>

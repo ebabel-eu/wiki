@@ -1,0 +1,97 @@
+<pre>==What is Sass?==
+  It's a way to parse CSS and re-use portions of it, with nested styles for example.
+  
+  ==Install Sass on Windows 7==
+  Download the recommended stable [http://dl.bintray.com/oneclick/rubyinstaller/rubyinstaller-1.9.3-p448.exe?direct RubyInstaller Ruby 1.9.3-p448] (.exe) from the main [http://rubyinstaller.org/downloads/ download page].
+  
+  ===Installation options===
+  * Although is optional to install Tcl/Tk support, it's not a bad idea to do so, to create Gui with Ruby. This is nothing to do with Sass though.
+  * Add Rub executables to your PATH is a good idea, check it. That way it's possible to run Ruby commands from cmd without browsing to the path where Ruby is installed.
+  * Associate .rb and .rbw files with this Ruby installation. also makes sense. Check it.
+  
+  ===Install Sass===
+  Note: Don't forget to logout and log back in, otherwise your updated PATH environment variables values won't be available yet.
+  
+  Now that Ruby is installed, in a cmd prompt, run:
+  
+    gem install sass
+  
+  Now it's possible to parse an scss file into css, scss being the Sass version of css in your cmd prompt.
+  
+  For example:
+  
+    sass --watch style.scss:style.css
+  
+  Source: http://sass-lang.com/tutorial.html
+  
+  ==Add syntax highlighting to Sublime Text 2 for Sass on Windows==
+  
+  Get a copy of the latest Syntax highlighting package in a [http://www.cygwin.com/install.html Cygwin prompt] with Git:
+  
+    git clone https://github.com/n00ge/sublime-text-haml-sass.git sublime-text-haml-sass
+    cd sublime-text-haml-sass/
+  
+  Find out where the Packages are in your copy of Sublime Text 2 with the menu Preferences > Browse Packages
+  
+  Now you can copy the packages obtained via Git to your Sublime Text 2 packages directory. For example:
+  
+    cp -R SASS /cygdrive/c/Users/[your username]/AppData/Roaming/Sublime\ Text\ 2/Packages/
+    cp -R Ruby\ Haml /cygdrive/c/Users/[your username]/AppData/Roaming/Sublime\ Text\ 2/Packages/
+  
+  Close all files opened by Sublime Text 2, close all instances of Sublime Text 2 then restart it.
+  
+  When you open .scss files, they should now be syntax highlighted.
+  
+  ==Support for IE8 fallbacks in SaSS media queries==
+    $mobile: 320; 
+    $tablet: 768;
+    $desktop: 769;
+  
+    @mixin mediaquery($point, $IE9: false, $query1: min, $query2: width) {
+     @if $IE9 == true{
+         .lt-ie9 & {
+             @content;
+         }
+         @media screen and (#{$query1}-#{$query2}: $point / $doc-font-size +em) {
+             @content;
+         }
+     }
+     
+     @else {
+         @media screen and (#{$query1}-#{$query2}: $point / $doc-font-size +em) {
+             @content;
+         }
+     }
+    }
+  
+  Source: http://alwaystwisted.com/post.php?s=2013-04-01-my-media-query-mixin
+  
+  In je css:
+  
+    @include mediaquery($desktop, true, min) {
+      //je code                   
+    }
+  
+  De true parameter zorgt ervoor dat voor je code .lt-ie9 wordt geplaatst, waardoor je ie8 kan ondersteunen.
+  
+  ==Sass is not watching subdirectories and files in sub folders==
+  Solution: rollback Sass to 3.2.0
+  
+  Windows:
+  
+  Uninstall newer versions of sass:
+  
+    gem uninstall sass
+  
+  Install, or keep, only version 3.2.0
+  
+    gem install sass -v=3.2.0
+  
+  Bourbon version to use: also 3.2.0
+  
+  ==Windows command line==
+  In a .bat file or in a command line, run:
+  
+    START sass --watch --debug-info --line-numbers "screen.scss:../screen.css"
+    EXIT
+  </pre>
